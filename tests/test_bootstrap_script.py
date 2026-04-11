@@ -4,7 +4,9 @@ from pathlib import Path
 
 
 def test_bootstrap_script_defaults_to_qwen35_and_lists_only_larger_presets() -> None:
-    script = Path("scripts/bootstrap_local_slm.sh").read_text(encoding="utf-8")
+    script = (Path(__file__).resolve().parents[1] / "scripts" / "bootstrap_local_slm.sh").read_text(
+        encoding="utf-8"
+    )
 
     assert 'MODEL_PRESET="${MODEL_PRESET:-qwen3.5-4b}"' in script
     assert "qwen2.5-3b" in script

@@ -6,6 +6,7 @@ from dataclasses import asdict
 import json
 import sys
 from pathlib import Path
+from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,6 +37,54 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _normalize_role(role: str) -> str:
+    normalized = str(role or "user").strip().lower()
+    if normalized not in {"system", "user", "assistant"}:
+        return "user"
+    return normalized
+
+
+def build_request_for_case(case: Any):
+    from app.schemas import AgentContext, ConversationTurn, EvaluationRequest, SubmissionTarget
+
+    conversation = [
+        ConversationTurn(role=_normalize_role(turn.role), content=turn.content)
+        for turn in getattr(case, "transcript", [])
+    ]
+    metadata = {
+        "benchmark_case_id": case.case_id,
+        "benchmark_title": case.title,
+    }
+    target_endpoint = str(getattr(case, "target_endpoint", "") or "").strip()
+    if target_endpoint:
+        metadata["target_endpoint"] = target_endpoint
+
+    submission = None
+    if getattr(case, "evaluation_mode", "repository_only") in {"repository_only", "hybrid"}:
+        submission = SubmissionTarget(
+            source_type="github_url",
+            github_url=case.repo_url or "",
+            target_name=case.agent_name,
+            description=case.description,
+        )
+
+    return EvaluationRequest(
+        evaluation_mode=getattr(case, "evaluation_mode", "repository_only"),
+        context=AgentContext(
+            agent_name=case.agent_name,
+            description=case.description,
+            domain=case.domain,
+            capabilities=list(case.capabilities),
+            high_autonomy=case.high_autonomy,
+        ),
+        selected_policies=list(case.selected_policies),
+        conversation=conversation,
+        metadata=metadata,
+        submission=submission,
+        calibration_case_id=case.case_id,
+    )
+
+
 def main() -> None:
     args = parse_args()
     pack = load_benchmark_pack(args.pack)
@@ -53,31 +102,13 @@ def main() -> None:
 
     try:
         from app.orchestrator import SafetyLabOrchestrator
-        from app.schemas import AgentContext, EvaluationRequest, SubmissionTarget
     except Exception as exc:  # noqa: BLE001
         raise SystemExit(f"Unable to import the evaluation app: {exc}") from exc
 
     orchestrator = SafetyLabOrchestrator()
 
     def evaluate_case(case):
-        request = EvaluationRequest(
-            context=AgentContext(
-                agent_name=case.agent_name,
-                description=case.description,
-                domain=case.domain,
-                capabilities=list(case.capabilities),
-                high_autonomy=case.high_autonomy,
-            ),
-            selected_policies=list(case.selected_policies),
-            conversation=[],
-            metadata={"benchmark_case_id": case.case_id, "benchmark_title": case.title},
-            submission=SubmissionTarget(
-                source_type="github_url",
-                github_url=case.repo_url,
-                target_name=case.agent_name,
-                description=case.description,
-            ),
-        )
+        request = build_request_for_case(case)
         response = orchestrator.evaluate(request)
         return response.decision, response.council_result.decision_rule_triggered, response.report_path, response.archive_path
 

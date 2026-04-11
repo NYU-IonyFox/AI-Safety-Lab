@@ -93,6 +93,60 @@ The repository is now oriented around a standalone local SLM path by default: th
 
 ---
 
+## Validation / Design Rationale
+
+This system is best understood as a **research-informed, standards-aligned assurance pipeline** rather than a direct reproduction of any single paper. The major modules map to established validation sources:
+
+- **Council and critique loop -> debate / scalable oversight**
+  The council combines multiple expert viewpoints, critique, revision, and explicit arbitration. This design is aligned with work on debate and scalable oversight, including [AI Safety via Debate](https://arxiv.org/abs/1805.00899), [Constitutional AI](https://www.anthropic.com/research/constitutional-ai-harmlessness-from-ai-feedback), and Anthropic's work on [scalable oversight](https://www.anthropic.com/news/measuring-progress-on-scalable-oversight-for-large-language-models).
+
+- **Multilingual uncertainty -> multilingual safety and uncertainty-aware evaluation**
+  The `behavior_only` and `hybrid` flows track `detected_languages`, `translation_confidence`, and `uncertainty_flag` because multilingual safety degrades unevenly across languages and should not be treated as a side case. This is aligned with [All Languages Matter](https://aclanthology.org/2024.findings-acl.349/), [Conformalizing Machine Translation Evaluation](https://aclanthology.org/2024.tacl-1.80/), and [BenchMAX](https://aclanthology.org/2025.findings-emnlp.909/).
+
+- **Repository channel -> secure software assurance**
+  The repository analysis path treats the submitted codebase as a pre-deployment artifact and maps naturally to secure software assurance and implementation review. This design is aligned with [NIST SP 800-218 SSDF](https://csrc.nist.gov/pubs/sp/800/218/final).
+
+- **Behavior channel -> red teaming and runtime safety testing**
+  The transcript and probe path is intended to capture runtime misuse, prompt injection, refusal behavior, and secret-seeking behavior that static code review alone will miss. This design is aligned with the [OWASP AI Testing Guide](https://owasp.org/www-project-ai-testing-guide/) and the [OWASP GenAI Red Teaming Guide](https://genai.owasp.org/resource/genai-red-teaming-guide/).
+
+- **Hybrid assurance -> system-level AI risk management**
+  The `hybrid` mode explicitly combines repository evidence and behavior evidence instead of pretending either channel is complete on its own. This design is aligned with system-level assurance guidance from [NIST AI RMF 1.0](https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-ai-rmf-10), the [NIST AI RMF Generative AI Profile](https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-generative-artificial-intelligence), and [MITRE AI Assurance](https://www.mitre.org/news-insights/publication/ai-assurance-repeatable-process-assuring-ai-enabled-systems).
+
+Important caveat: the exact implementation choices in this repository, such as `repository_channel_score`, `behavior_channel_score`, rule thresholds, and evidence-routing heuristics, are **design choices that still require benchmark validation**. See [ARCHITECTURE.md](ARCHITECTURE.md) for the full rationale and [VALIDATION_PLAN.md](VALIDATION_PLAN.md) for the empirical validation roadmap.
+
+---
+
+## Validation Harness
+
+The repository now includes a repeated-run validation harness for benchmarking threshold, weighting, and routing choices instead of relying on one-off scores.
+
+Main assets:
+
+- benchmark manifests under `model_assets/benchmark_cases/`
+- repeated-run CLI: `scripts/run_benchmark_pack_repeated.py`
+- interval and bootstrap metrics: `model_assets/benchmark_cases/metrics.py`
+- worst-case / long-tail reporting: `model_assets/benchmark_cases/reporting.py`
+
+Example:
+
+```bash
+python scripts/run_benchmark_pack_repeated.py \
+  --pack model_assets/benchmark_cases/validation_benchmark_pack.json \
+  --repeats 10 \
+  --baseline-id current \
+  --interval-method bootstrap \
+  --json > validation_report.json
+```
+
+The JSON output includes:
+
+- raw repeated benchmark runs
+- aggregated metrics with intervals
+- worst-case slice summaries
+- critical failure and instability summaries
+
+---
+
 ## Clean-Machine Quick Start
 
 ### Prerequisites
