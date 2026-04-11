@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from council.arbitration import detect_convergent_risk, run_arbitration
+from model_assets.council.arbitration import detect_convergent_risk, run_arbitration
 
 
 # ---------------------------------------------------------------------------
