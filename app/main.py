@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -10,10 +11,15 @@ from app.intake.submission_service import SubmissionError
 from app.orchestrator import SafetyLabOrchestrator
 from app.schemas import AgentContext, EvaluationRequest, EvaluationResponse, SubmissionTarget
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ensure_storage_ready()
+    preflight = orchestrator.runtime_preflight()
+    if preflight.get("warning"):
+        logger.warning("%s", preflight["warning"])
     yield
 
 
@@ -23,6 +29,7 @@ orchestrator = SafetyLabOrchestrator()
 
 @app.get("/")
 def root() -> dict[str, str]:
+    preflight = orchestrator.runtime_preflight()
     return {
         "name": "UNICC AI Safety Lab API",
         "status": "ok",
@@ -34,6 +41,9 @@ def root() -> dict[str, str]:
         "cli_hint": "Run `ai-safety-lab-eval --github-url https://github.com/owner/repository` for a no-schema CLI path.",
         "frontend_hint": "Run `streamlit run frontend/streamlit_app.py` for the stakeholder-facing UI.",
         "fallback_hint": "If local HF execution fails, expert verdicts degrade to rules_fallback and record the reason in metadata.",
+        "runtime_preflight_status": preflight["status"],
+        "configured_execution_mode": preflight["configured_execution_mode"],
+        "startup_warning": preflight["warning"],
     }
 
 

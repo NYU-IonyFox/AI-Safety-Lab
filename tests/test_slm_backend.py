@@ -40,6 +40,21 @@ def test_local_hf_runner_requires_model_id_at_runtime(monkeypatch) -> None:
         runner.complete_json(task="team1_policy_expert", payload={"foo": "bar"})
 
 
+def test_local_hf_runner_preflight_reports_missing_dependency(monkeypatch) -> None:
+    monkeypatch.setenv("LOCAL_HF_MODEL_ID", "Qwen/Qwen3.5-4B")
+    runner = LocalHFRunner()
+
+    def _raise_missing() -> tuple[object, object, object]:
+        raise ModuleNotFoundError("No module named 'transformers'")
+
+    monkeypatch.setattr(runner, "_import_dependencies", _raise_missing)
+    preflight = runner.preflight()
+
+    assert preflight["status"] == "degraded"
+    assert 'python -m pip install -e ".[local-hf]"' in preflight["warning"]
+    assert "rules_fallback" in preflight["warning"]
+
+
 def test_local_hf_runner_surfaces_missing_dependency_hint(monkeypatch) -> None:
     monkeypatch.setenv("LOCAL_HF_MODEL_ID", "Qwen/Qwen2.5-1.5B-Instruct")
     runner = LocalHFRunner()

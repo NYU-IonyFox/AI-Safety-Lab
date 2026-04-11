@@ -18,3 +18,6 @@ class SLMRunner(ABC):
 
     def describe(self) -> dict[str, str]:
         return {"backend": self.backend_name}
+
+    def preflight(self) -> dict[str, str]:
+        return {"status": "ready", "warning": "", "backend": self.backend_name}

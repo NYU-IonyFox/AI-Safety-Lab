@@ -162,6 +162,40 @@ class LocalHFRunner(SLMRunner):
     def describe(self) -> dict[str, str]:
         return {"backend": self.backend_name, "model_id": self.model_id}
 
+    def preflight(self) -> dict[str, str]:
+        if not self.model_id:
+            return {
+                "status": "degraded",
+                "warning": "LOCAL_HF_MODEL_ID is empty, so the default standalone SLM path is not configured.",
+                "backend": self.backend_name,
+            }
+
+        try:
+            torch_mod, _, _ = self._import_dependencies()
+        except ModuleNotFoundError:
+            return {
+                "status": "degraded",
+                "warning": (
+                    'Local HF dependencies are not installed. '
+                    'Install with `python -m pip install -e ".[local-hf]"`. '
+                    "Until then, expert outputs will degrade to rules_fallback."
+                ),
+                "backend": self.backend_name,
+            }
+
+        if self.device_pref == "cuda" and not torch_mod.cuda.is_available():
+            return {
+                "status": "degraded",
+                "warning": "LOCAL_HF_DEVICE=cuda but CUDA is not available in this environment.",
+                "backend": self.backend_name,
+            }
+
+        return {
+            "status": "ready",
+            "warning": "",
+            "backend": self.backend_name,
+        }
+
     def warmup(self) -> dict[str, str]:
         """
         Load the local runtime before the first expert call so bootstrap scripts

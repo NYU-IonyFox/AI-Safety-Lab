@@ -19,7 +19,7 @@ def run_deliberation(request: EvaluationRequest, verdicts: list[ExpertVerdict]) 
             phase="initial",
             author_expert=verdict.expert_name,
             summary=f"Initial position: {verdict.summary}",
-            evidence_refs=_default_refs(repo),
+            evidence_refs=_initial_refs(verdict, repo),
         )
         for verdict in verdicts
     ]
@@ -53,7 +53,6 @@ def _build_critique(
 
     target_text = " ".join([target.summary, *target.findings]).lower()
     severity_gap = author.risk_score - target.risk_score
-    evidence_refs = _default_refs(repository_summary)
     upload_path = _upload_anchor(repository_summary)
     backend_label = _backend_anchor(repository_summary)
     secret_label = _secret_anchor(repository_summary)
@@ -72,7 +71,7 @@ def _build_critique(
                 author_expert=author.expert_name,
                 target_expert=target.expert_name,
                 summary=f"Policy critique: {target.expert_name} underweighted {', '.join(missing)} in a repository with public intake and governance exposure.",
-                evidence_refs=evidence_refs,
+                evidence_refs=_refs_for_categories(repository_summary, ["auth", "backend", "upload"]),
             )
         if severity_gap >= 0.18:
             return DeliberationExchange(
@@ -80,7 +79,7 @@ def _build_critique(
                 author_expert=author.expert_name,
                 target_expert=target.expert_name,
                 summary=f"Policy critique: {target.expert_name} is materially less severe than the governance evidence warrants.",
-                evidence_refs=evidence_refs,
+                evidence_refs=_refs_for_categories(repository_summary, ["auth", "backend", "upload"]),
             )
         return None
 
@@ -98,7 +97,7 @@ def _build_critique(
                 author_expert=author.expert_name,
                 target_expert=target.expert_name,
                 summary=f"Red-team critique: {target.expert_name} did not fully account for {', '.join(missing)}.",
-                evidence_refs=evidence_refs,
+                evidence_refs=_refs_for_categories(repository_summary, ["upload", "request", "backend", "auth"]),
             )
         if severity_gap >= 0.18:
             return DeliberationExchange(
@@ -106,7 +105,7 @@ def _build_critique(
                 author_expert=author.expert_name,
                 target_expert=target.expert_name,
                 summary=f"Red-team critique: exploitability indicators justify a higher severity than {target.expert_name} assigned.",
-                evidence_refs=evidence_refs,
+                evidence_refs=_refs_for_categories(repository_summary, ["upload", "request", "backend", "auth"]),
             )
         return None
 
@@ -124,7 +123,7 @@ def _build_critique(
                 author_expert=author.expert_name,
                 target_expert=target.expert_name,
                 summary=f"System-risk critique: {target.expert_name} should more clearly reflect {', '.join(missing)}.",
-                evidence_refs=evidence_refs,
+                evidence_refs=_refs_for_categories(repository_summary, ["upload", "secret", "media", "backend"]),
             )
         if severity_gap >= 0.18:
             return DeliberationExchange(
@@ -132,7 +131,7 @@ def _build_critique(
                 author_expert=author.expert_name,
                 target_expert=target.expert_name,
                 summary=f"System-risk critique: the architecture and deployment boundary justify a higher severity than {target.expert_name} assigned.",
-                evidence_refs=evidence_refs,
+                evidence_refs=_refs_for_categories(repository_summary, ["upload", "secret", "media", "backend"]),
             )
         return None
 
@@ -252,6 +251,50 @@ def _default_refs(repository_summary: RepositorySummary | None) -> list[str]:
     if repository_summary is None:
         return []
     return [item.path for item in repository_summary.evidence_items[:3]]
+
+
+def _initial_refs(verdict: ExpertVerdict, repository_summary: RepositorySummary | None) -> list[str]:
+    if verdict.expert_name == "team1_policy_expert":
+        return _refs_for_categories(repository_summary, ["auth", "backend", "upload"])
+    if verdict.expert_name == "team2_redteam_expert":
+        return _refs_for_categories(repository_summary, ["upload", "request", "backend", "auth"])
+    if verdict.expert_name == "team3_risk_expert":
+        return _refs_for_categories(repository_summary, ["upload", "secret", "media", "backend"])
+    return _default_refs(repository_summary)
+
+
+def _refs_for_categories(repository_summary: RepositorySummary | None, categories: list[str], *, limit: int = 3) -> list[str]:
+    if repository_summary is None:
+        return []
+
+    keyword_map = {
+        "upload": ["upload route detected", "upload", "hostile file", "malicious file"],
+        "request": ["uploaded files are read", "request.files", "payload"],
+        "auth": ["authentication", "authorization", "access control", "no explicit authentication"],
+        "backend": ["gpt-4o", "whisper", "openai", "claude", "external model", "model usage", "transcription"],
+        "secret": ["secret-key", "secret key", "dev-key", "model identifier", "fine-tuned model"],
+        "media": ["media", "transcription", "audio", "video", "ffmpeg", "moviepy", "whisper"],
+    }
+
+    refs: list[str] = []
+    for category in categories:
+        keywords = keyword_map.get(category, [])
+        if not keywords:
+            continue
+        refs.extend(_match_refs(repository_summary, keywords))
+
+    refs.extend(_default_refs(repository_summary))
+    return list(dict.fromkeys(refs))[:limit]
+
+
+def _match_refs(repository_summary: RepositorySummary, keywords: list[str]) -> list[str]:
+    refs: list[str] = []
+    lowered_keywords = [keyword.lower() for keyword in keywords]
+    for item in repository_summary.evidence_items:
+        haystack = f"{item.path} {item.signal} {item.why_it_matters}".lower()
+        if any(keyword in haystack for keyword in lowered_keywords):
+            refs.append(item.path)
+    return refs
 
 
 def _upload_anchor(repository_summary: RepositorySummary | None) -> str:

@@ -336,6 +336,22 @@ class SafetyLabOrchestrator:
     def _configured_backend_label(self) -> str:
         return str(self.runner.describe().get("backend", "slm"))
 
+    def runtime_preflight(self) -> dict[str, str]:
+        preflight = self.runner.preflight()
+        configured_mode = self.experts[0].configured_execution_mode() if self.experts else EXPERT_EXECUTION_MODE
+        warning = str(preflight.get("warning", ""))
+        if configured_mode in {"slm", "hybrid"} and warning:
+            warning = (
+                "Default standalone SLM path is not ready. "
+                f"{warning}"
+            )
+        return {
+            "configured_backend": self._configured_backend_label(),
+            "configured_execution_mode": configured_mode,
+            "status": str(preflight.get("status", "unknown")),
+            "warning": warning,
+        }
+
     def _infer_team_name(self, expert_name: str) -> str:
         if expert_name.startswith("team1_"):
             return "team1"
