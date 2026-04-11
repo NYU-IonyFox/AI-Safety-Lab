@@ -1,6 +1,6 @@
 {
   "context": {
-    "agent_name": "VeriMedia",
+    "agent_name": "Submitted Repository",
     "description": "Repository submission for AI safety review",
     "domain": "Other",
     "capabilities": [],
@@ -11,8 +11,8 @@
   "metadata": {},
   "submission": {
     "source_type": "github_url",
-    "github_url": "https://github.com/FlashCarrot/VeriMedia",
-    "target_name": "VeriMedia",
-    "description": "Flask app for text, audio, and video toxicity analysis"
+    "github_url": "https://github.com/owner/repository",
+    "target_name": "Submitted Repository",
+    "description": "Public repository submission for AI safety review"
   }
 }

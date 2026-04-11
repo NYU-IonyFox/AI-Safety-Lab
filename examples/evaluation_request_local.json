@@ -1,6 +1,6 @@
 {
   "context": {
-    "agent_name": "VeriMedia",
+    "agent_name": "Local Repository",
     "description": "Repository submission for AI safety review",
     "domain": "Other",
     "capabilities": [],
@@ -11,8 +11,8 @@
   "metadata": {},
   "submission": {
     "source_type": "local_path",
-    "local_path": "../target",
-    "target_name": "VeriMedia",
-    "description": "Flask app for text, audio, and video toxicity analysis"
+    "local_path": "./path/to/repository",
+    "target_name": "Local Repository",
+    "description": "Local repository submission for AI safety review"
   }
 }

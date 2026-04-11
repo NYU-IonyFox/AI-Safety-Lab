@@ -7,11 +7,11 @@ import httpx
 import streamlit as st
 
 APP_TITLE = "AI Safety Lab"
-APP_SUBTITLE = "A grader-facing AI safety evaluation workspace for public GitHub repositories and local codebases."
+APP_SUBTITLE = "A stakeholder-facing AI safety evaluation workspace for public GitHub repositories and local codebases."
 DEFAULT_API_BASE = "http://127.0.0.1:8080"
-DEFAULT_GITHUB_TARGET = "https://github.com/FlashCarrot/VeriMedia"
+DEFAULT_GITHUB_TARGET = ""
 DEFAULT_LOCAL_TARGET = ""
-DEFAULT_DESCRIPTION = "Flask app for text, audio, and video toxicity analysis using GPT-4o and Whisper-style transcription."
+DEFAULT_DESCRIPTION = "Repository submission for AI safety review."
 
 EXPERT_TITLES = {
     "team1_policy_expert": "Policy & Compliance",
@@ -263,9 +263,9 @@ def render_intro() -> None:
                 </div>
                 <div>
                     <div class="section-card" style="margin-bottom:0; background:#fffaf4;">
-                        <div class="muted"><strong>Recommended grading path</strong></div>
+                        <div class="muted"><strong>Suggested workflow</strong></div>
                         <div style="margin-top:0.45rem; font-weight:700; color:#0f172a;">1. Start backend and frontend locally</div>
-                        <div class="muted">2. Submit a public GitHub repository such as VeriMedia</div>
+                        <div class="muted">2. Submit a public GitHub repository or a local codebase</div>
                         <div class="muted">3. Review the expert findings, arbitration rule, and stakeholder report</div>
                     </div>
                 </div>
@@ -299,7 +299,7 @@ def render_demo_steps() -> None:
             <div class="step-card">
                 <div class="muted"><strong>Step 1</strong></div>
                 <div style="font-size:1.15rem;font-weight:800;margin-top:0.2rem;">Choose the repository source</div>
-                <div style="margin-top:0.45rem;">Use the default VeriMedia GitHub URL for the cleanest grading demo, or switch to a local path for offline debugging.</div>
+                <div style="margin-top:0.45rem;">Use a public GitHub URL for the smoothest demo path, or switch to a local path for offline debugging.</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -337,16 +337,16 @@ def render_submission_form() -> None:
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
         st.subheader("Repository submission")
         source_type = st.radio("Source type", ["github_url", "local_path"], horizontal=True)
-        target_name = st.text_input("Target name", value="VeriMedia")
+        target_name = st.text_input("Target name", value="Submitted Repository")
         description = st.text_area("Optional description", value=DEFAULT_DESCRIPTION, height=100)
-        github_url = st.text_input("GitHub URL", value=DEFAULT_GITHUB_TARGET, disabled=(source_type != "github_url"))
+        github_url = st.text_input("GitHub URL", value=DEFAULT_GITHUB_TARGET, disabled=(source_type != "github_url"), placeholder="https://github.com/owner/repository")
         local_path = st.text_input("Local path", value=DEFAULT_LOCAL_TARGET, disabled=(source_type != "local_path"))
-        st.caption("GitHub URL is the primary grading path. Use local path only when GitHub access is unavailable.")
+        st.caption("Use GitHub URL for public repositories or local path for offline evaluation.")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with right:
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
-        st.subheader("What the evaluator should see")
+        st.subheader("What the user will see")
         st.markdown("- Repository summary grounded in the submitted codebase")
         st.markdown("- Three distinct expert assessments")
         st.markdown("- Explicit arbitration rule for APPROVE / REVIEW / REJECT")
@@ -357,7 +357,7 @@ def render_submission_form() -> None:
         api_base = st.text_input("Backend API base", value=DEFAULT_API_BASE)
         target_endpoint = st.text_input("LLM endpoint (optional)", value="")
         target_model = st.text_input("Model name (optional)", value="")
-        st.caption("Leave target execution fields blank for the default no-live-key grading path.")
+        st.caption("Leave target execution fields blank for the default local no-key path.")
 
     if st.button("Run evaluation", use_container_width=True):
         if source_type == "local_path" and not local_path.strip():

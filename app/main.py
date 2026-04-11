@@ -18,7 +18,7 @@ def root() -> dict[str, str]:
         "health_url": "/health",
         "smoke_test_url": "/smoke-test",
         "evaluation_endpoint": "/v1/evaluations",
-        "frontend_hint": "Run `streamlit run frontend/streamlit_app.py` for the grader-facing UI.",
+        "frontend_hint": "Run `streamlit run frontend/streamlit_app.py` for the stakeholder-facing UI.",
     }
 
 

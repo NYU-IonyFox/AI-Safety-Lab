@@ -36,7 +36,7 @@ An AI safety evaluation platform with three layers:
   - **Adversarial Misuse**: abuse paths, prompt-injection surface, hostile uploads, and misuse likelihood
   - **System & Deployment**: architecture, external-model coupling, deployment exposure, and operational safeguards
 
-- **Grader-Facing UI and Reports**  
+- **Stakeholder-Facing UI and Reports**  
   Produces a structured JSON response, a markdown stakeholder report, a JSON archive, and a local Streamlit interface for non-technical review.
 
 ---
@@ -72,7 +72,7 @@ Implemented in this repository through:
 
 - Streamlit stakeholder UI
 - markdown stakeholder report generation
-- VeriMedia evaluation flow
+- repository evaluation flow
 - smoke-test and health-check routes
 - end-to-end integration across intake, experts, council, and artifacts
 
@@ -85,7 +85,7 @@ The capstone memo emphasizes an on-prem, auditable, governance-aligned AI Safety
 - **explicit critique/synthesis**: council arbitration with a named `decision_rule_triggered`
 - **auditability**: repository evidence, markdown reports, JSON archives, and redaction before persistence
 
-The repository also includes optional hooks for more advanced expert-model backends, but the default grading path intentionally runs in a deterministic rules/mock mode so evaluators can install and test it without extra credentials or cluster access.
+The repository also includes optional hooks for more advanced expert-model backends, but the default quickstart intentionally runs in a deterministic rules/mock mode so users can install and test it without extra credentials or cluster access.
 
 ---
 
@@ -97,7 +97,7 @@ The repository also includes optional hooks for more advanced expert-model backe
 - `git`
 - Network access to `github.com` for GitHub URL intake
 
-No live API key is required for the default grading path.
+No live API key is required for the default quickstart path.
 
 ### Step 1 — Clone and install
 
@@ -160,7 +160,7 @@ Expected response shape:
 }
 ```
 
-### Step 4 — Start the grader-facing frontend
+### Step 4 — Start the stakeholder-facing frontend
 
 Open a second terminal in the same folder and activate the same virtual environment:
 
@@ -174,40 +174,51 @@ Then open the local URL shown by Streamlit, typically:
 http://127.0.0.1:8501
 ```
 
-### Step 5 — Submit VeriMedia
+### Step 5 — Submit a repository
 
-The frontend defaults to the standard test case:
+Use either of the supported input modes:
 
-- `Source type`: `github_url`
-- `GitHub URL`: `https://github.com/FlashCarrot/VeriMedia`
-- `Target name`: `VeriMedia`
+- `github_url` for a public repository
+- `local_path` for a repository already on disk
 
-Leave advanced target-execution fields blank for the default no-key grading path.
+Leave advanced target-execution fields blank for the default no-key path.
 
 ---
 
-## Evaluating VeriMedia
+## Evaluating a Repository
 
 ### Option 1 — Submit via GitHub URL
 
+Set a public GitHub repository URL and optional target name:
+
 ```bash
-curl -sS -X POST "http://127.0.0.1:8080/v1/evaluations" \
-  -H "Content-Type: application/json" \
-  --data-binary @examples/evaluation_request.json
+GITHUB_URL=https://github.com/owner/repository \
+TARGET_NAME="Submitted Repository" \
+./scripts/curl_eval.sh
 ```
 
 ### Option 2 — Submit via local path
 
 ```bash
-curl -sS -X POST "http://127.0.0.1:8080/v1/evaluations" \
-  -H "Content-Type: application/json" \
-  --data-binary @examples/evaluation_request_local.json
+SOURCE_TYPE=local_path \
+LOCAL_PATH=/absolute/path/to/repository \
+TARGET_NAME="Local Repository" \
+./scripts/curl_eval.sh
 ```
 
-### Option 3 — Use the helper script
+### Option 3 — Post a JSON template directly
+
+Edit one of the example payloads first:
 
 ```bash
-./scripts/curl_eval.sh
+examples/evaluation_request.json
+examples/evaluation_request_local.json
+```
+
+Then submit it:
+
+```bash
+REQUEST_FILE=examples/evaluation_request.json ./scripts/curl_eval.sh
 ```
 
 ### Option 4 — One-command demo launch
@@ -263,7 +274,7 @@ An evaluation response contains:
   "experts": [
     {
       "expert_name": "team3_risk_expert",
-      "summary": "VeriMedia: system-risk review found an unauthenticated upload pipeline connected to external AI services, so deployment review is required."
+      "summary": "Submitted Repository: system-risk review found an externally exposed upload pipeline connected to model processing, so deployment review is required."
     }
   ],
   "council_result": {
@@ -277,9 +288,9 @@ An evaluation response contains:
 
 ---
 
-## What a Strong VeriMedia Evaluation Should Surface
+## What a Strong Evaluation Should Surface
 
-When evaluating `https://github.com/FlashCarrot/VeriMedia`, the output should reference repository-specific evidence such as:
+For a repository with public upload routes, model integrations, and weak access controls, the output should reference repository-specific evidence such as:
 
 - Flask route architecture
 - file-upload entry points
@@ -351,7 +362,7 @@ ai-safety-lab/
 │   ├── council.py      # Final arbitration logic
 │   ├── main.py         # FastAPI entrypoint
 │   └── orchestrator.py # End-to-end evaluation pipeline
-├── frontend/           # Streamlit grader-facing UI
+├── frontend/           # Streamlit stakeholder UI
 ├── examples/           # Example evaluation payloads
 ├── model_assets/       # Prompt and schema assets
 ├── scripts/            # Demo and evaluation helpers
@@ -364,7 +375,7 @@ ai-safety-lab/
 
 ## Configuration
 
-The default grading path is intentionally safe:
+The default quickstart path is intentionally safe:
 
 - `SLM_BACKEND=mock`
 - `EXPERT_EXECUTION_MODE=rules`
@@ -384,7 +395,7 @@ These are only needed if you want to enable optional expert-model or target-mode
 
 ## Docker
 
-Docker is supported, but the recommended evaluator path is the plain Python quick start above.
+Docker is supported, but the recommended quickstart path is the plain Python path above.
 
 ```bash
 docker compose up --build
