@@ -21,15 +21,15 @@ REPOSITORY_SOURCE_OPTIONS = {
 }
 
 EXPERT_TITLES = {
-    "team1_policy_expert": "Policy & Compliance",
-    "team2_redteam_expert": "Adversarial Misuse",
-    "team3_risk_expert": "System & Deployment",
+    "team1_policy_expert": "Governance, Compliance & Societal Risk (Policy & Compliance)",
+    "team2_redteam_expert": "Data, Content & Behavioral Safety (Adversarial Misuse)",
+    "team3_risk_expert": "Security & Adversarial Robustness (System & Deployment)",
 }
 
 TRIGGER_LABELS = {
-    "team1_policy_expert": "Policy & Compliance",
-    "team2_redteam_expert": "Adversarial Misuse",
-    "team3_risk_expert": "System & Deployment",
+    "team1_policy_expert": "Governance, Compliance & Societal Risk",
+    "team2_redteam_expert": "Data, Content & Behavioral Safety",
+    "team3_risk_expert": "Security & Adversarial Robustness",
     "disagreement": "Expert disagreement",
 }
 
@@ -43,6 +43,16 @@ DECISION_RULE_LABELS = {
     "low_confidence_review": "Low confidence requires review",
     "expert_disagreement_review": "Expert disagreement requires review",
     "moderate_risk_review": "Moderate risk requires review",
+    "behavior_only_uncertainty_review": "Behavior-only uncertainty requires review",
+    "behavior_only_secret_leak_reject": "Behavior-only secret leakage caused rejection",
+    "behavior_only_prompt_injection_reject": "Behavior-only prompt injection caused rejection",
+    "behavior_only_probe_error_review": "Behavior-only probe errors require review",
+    "behavior_only_refusal_safe_approve": "Behavior-only refusal behavior met the safe-approve bar",
+    "behavior_only_behavior_signal_reject": "Behavior-only behavior channel crossed the reject threshold",
+    "hybrid_uncertainty_review": "Hybrid multilingual uncertainty requires review",
+    "hybrid_dual_channel_reject": "Repository and behavior channels both crossed the reject threshold",
+    "hybrid_cross_channel_review": "One hybrid channel blocked approval and forced review",
+    "hybrid_channel_mismatch_review": "Repository and behavior channels diverged too far for auto-approval",
     "baseline_approve": "Baseline approval threshold met",
     "no_experts": "No expert outputs available",
 }
@@ -739,6 +749,7 @@ def render_submission_form() -> None:
 
 def render_submission_summary(result: dict) -> None:
     repo = result.get("repository_summary", {}) or {}
+    behavior = result.get("behavior_summary", {}) or {}
     expert_input = result.get("expert_input", {}) or {}
     submission = result.get("submission") or {}
     source_conversation = expert_input.get("source_conversation", []) if isinstance(expert_input, dict) else []
@@ -772,10 +783,17 @@ def render_submission_summary(result: dict) -> None:
             if mode == "Hybrid" and source_conversation:
                 st.markdown("**Conversation coverage**")
                 st.markdown(f"- {len(source_conversation)} conversation turn(s) supplied in the payload.")
+                if behavior:
+                    st.markdown(f"- Detected languages: {', '.join(behavior.get('detected_languages', [])) or 'None explicitly tagged'}.")
+                    st.markdown(f"- Uncertainty flag: {'Yes' if behavior.get('uncertainty_flag') else 'No'}.")
         else:
             st.markdown("**Transcript coverage**")
             st.markdown(f"- {len(source_conversation)} conversation turn(s) supplied in the payload.")
             st.markdown("- The council reviews the behavior evidence directly from the transcript.")
+            if behavior:
+                st.markdown(f"- Detected languages: {', '.join(behavior.get('detected_languages', [])) or 'None explicitly tagged'}.")
+                st.markdown(f"- Translation confidence: {float(behavior.get('translation_confidence', 1.0)):.2f}.")
+                st.markdown(f"- Uncertainty flag: {'Yes' if behavior.get('uncertainty_flag') else 'No'}.")
             target_execution = result.get("target_execution") or {}
             if isinstance(target_execution, dict) and target_execution.get("status") == "success":
                 st.markdown("- Optional target probing is enabled when a target endpoint is supplied.")
@@ -851,6 +869,7 @@ def render_council_panel(result: dict) -> None:
     rule_name = decision_rule_label(council.get("decision_rule_triggered", ""))
     triggered_by = ", ".join(trigger_label(item) for item in council.get("triggered_by", [])) or "None"
     disagreement_value = float(council.get("disagreement_index", 0))
+    channel_scores = council.get("channel_scores", {}) or {}
 
     st.subheader("Council synthesis")
     c1, c2, c3 = st.columns(3)
@@ -866,7 +885,13 @@ def render_council_panel(result: dict) -> None:
     if council.get("consensus_summary"):
         st.markdown(f"**Consensus summary:** {council.get('consensus_summary', '')}")
     st.markdown(f"**Council score:** {council.get('council_score', 0):.2f}")
+    st.markdown(f"**Score basis:** {council.get('score_basis', 'expert_average')}")
     st.markdown(f"**Triggered by:** {triggered_by}")
+    if channel_scores:
+        st.markdown(
+            f"**Channel scores:** repository {float(channel_scores.get('repository_channel_score', 0)):.2f} | "
+            f"behavior {float(channel_scores.get('behavior_channel_score', 0)):.2f}"
+        )
     st.markdown("**What happens next**")
     for item in governance_next_steps(result):
         st.markdown(f"- {item}")

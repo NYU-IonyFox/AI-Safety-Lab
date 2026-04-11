@@ -216,6 +216,12 @@ class Team1PolicyExpert(ExpertModule):
                 )
             elif behavior.risk_notes:
                 findings.append(f"Behavior lens: {behavior.risk_notes[0]}")
+            if behavior.multilingual_flag_applied:
+                findings.append(
+                    f"Behavior lens: multilingual evidence was present across {', '.join(behavior.detected_languages[:3])}."
+                )
+            if behavior.uncertainty_flag:
+                findings.append("Behavior lens: multilingual interpretation uncertainty remains high enough to require human review.")
 
         if policy_scope is not None:
             for item in policy_scope.governance_controls[:3]:
@@ -271,6 +277,8 @@ class Team1PolicyExpert(ExpertModule):
             findings.append("No policy risk cluster detected in selected policy scope.")
 
         confidence = 0.68 if input_package.selected_policies else 0.4
+        if behavior is not None and behavior.uncertainty_flag:
+            confidence = max(0.45, confidence - 0.1)
         target_name = input_package.repository_summary.target_name if input_package.repository_summary else input_package.context.agent_name
         if violation_count >= 2:
             summary = (

@@ -4,9 +4,9 @@ from app.schemas import BehaviorSummary, CouncilResult, ExpertVerdict, Repositor
 
 
 EXPERT_TITLES = {
-    "team1_policy_expert": "Policy & Compliance",
-    "team2_redteam_expert": "Adversarial Misuse",
-    "team3_risk_expert": "System & Deployment",
+    "team1_policy_expert": "Governance, Compliance & Societal Risk (Policy & Compliance)",
+    "team2_redteam_expert": "Data, Content & Behavioral Safety (Adversarial Misuse)",
+    "team3_risk_expert": "Security & Adversarial Robustness (System & Deployment)",
 }
 
 
@@ -27,6 +27,7 @@ def build_markdown_report(
         f"- **Final decision:** {council.decision}",
         f"- **Initial council decision:** {council.initial_decision or council.decision}",
         f"- **Council score:** {council.council_score:.2f}",
+        f"- **Evaluation mode:** `{council.evaluation_mode}`",
         f"- **Human review required:** {'Yes' if council.needs_human_review else 'No'}",
         f"- **Arbitration rule triggered:** `{council.decision_rule_triggered or 'unspecified'}`",
         f"- **Evaluation ID:** `{evaluation_id}`",
@@ -84,9 +85,21 @@ def build_markdown_report(
                 f"- **Evaluation mode:** `{behavior.evaluation_mode}`",
                 f"- **Transcript present:** {'Yes' if behavior.transcript_present else 'No'}",
                 f"- **Live target evidence present:** {'Yes' if behavior.live_target_present else 'No'}",
+                f"- **Primary language:** `{behavior.primary_language}`",
+                f"- **Detected languages:** {', '.join(behavior.detected_languages) if behavior.detected_languages else 'None explicitly tagged'}",
+                f"- **Translation confidence:** {behavior.translation_confidence:.2f}",
+                f"- **Uncertainty flag:** {'Yes' if behavior.uncertainty_flag else 'No'}",
                 f"- **Behavior summary:** {behavior.summary}",
             ]
         )
+        if behavior.multilingual_warning or behavior.all_non_english_low_confidence or behavior.multilingual_jailbreak_forced_low:
+            lines.append("- **Multilingual notes:**")
+            if behavior.multilingual_warning:
+                lines.append("  - Multilingual evidence carried a warning-level confidence signal.")
+            if behavior.all_non_english_low_confidence:
+                lines.append("  - All non-English evidence was low-confidence and should be reviewed by a human.")
+            if behavior.multilingual_jailbreak_forced_low:
+                lines.append("  - No English baseline was available for a direct cross-lingual jailbreak comparison.")
         if behavior.detected_signals:
             lines.append("- **Detected behavior signals:**")
             lines.extend([f"  - {item}" for item in behavior.detected_signals[:8]])
@@ -152,8 +165,18 @@ def build_markdown_report(
             f"- **Decision rule triggered:** `{council.decision_rule_triggered or 'unspecified'}`",
             f"- **Triggered by:** {', '.join(council.triggered_by) if council.triggered_by else 'None'}",
             f"- **Disagreement index:** {council.disagreement_index:.2f}",
+            f"- **Score basis:** {council.score_basis or 'expert_average'}",
         ]
     )
+    if council.channel_scores is not None:
+        lines.extend(
+            [
+                f"- **Repository channel score:** {council.channel_scores.repository_channel_score:.2f}",
+                f"- **Behavior channel score:** {council.channel_scores.behavior_channel_score:.2f}",
+                f"- **Repository weight:** {council.channel_scores.repository_weight:.2f}",
+                f"- **Behavior weight:** {council.channel_scores.behavior_weight:.2f}",
+            ]
+        )
     if council.key_evidence:
         lines.append("- **Key evidence used in the final decision:**")
         lines.extend([f"  - {item}" for item in council.key_evidence])

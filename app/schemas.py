@@ -93,10 +93,18 @@ class TargetExecutionPackage(StrictModel):
 
 
 class BehaviorEvidence(StrictModel):
-    source: Literal["conversation", "attack_prompt", "target_output", "target_execution", "repository"]
+    source: Literal["conversation", "attack_prompt", "target_output", "target_execution", "repository", "metadata"]
     signal: str
     quote: str = ""
     why_it_matters: str = ""
+
+
+class BehaviorMultilingualSegment(StrictModel):
+    language: str
+    source: Literal["conversation", "target_output", "metadata"]
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    warning: bool = False
+    preview: str = ""
 
 
 class BehaviorSummary(StrictModel):
@@ -113,6 +121,15 @@ class BehaviorSummary(StrictModel):
     source_roles: list[str] = Field(default_factory=list)
     target_roles: list[str] = Field(default_factory=list)
     enriched_roles: list[str] = Field(default_factory=list)
+    primary_language: str = "unknown"
+    detected_languages: list[str] = Field(default_factory=list)
+    translation_confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    uncertainty_flag: bool = False
+    multilingual_warning: bool = False
+    all_non_english_low_confidence: bool = False
+    multilingual_jailbreak_forced_low: bool = False
+    multilingual_flag_applied: bool = False
+    multilingual_segments: list[BehaviorMultilingualSegment] = Field(default_factory=list)
     target_execution_status: TargetExecutionStatus = "skipped"
     target_status: TargetExecutionStatus = "skipped"
     target_endpoint: str = ""
@@ -141,12 +158,24 @@ class ExpertMetadata(StrictModel):
     actual_backend: str = ""
     fallback_reason: str = ""
     judge_version: str = "v1"
+    taxonomy_slug: str = ""
+    taxonomy_label: str = ""
+    legacy_label: str = ""
+    taxonomy_version: str = "proj-2"
 
 
 class CouncilMetadata(StrictModel):
     council_name: str = "safety_council"
     decision_rule_version: str = "matrix-v2"
     members: list[ExpertMetadata] = Field(default_factory=list)
+
+
+class CouncilChannelScores(StrictModel):
+    repository_channel_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    behavior_channel_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    blended_score: float = Field(default=0.0, ge=0.0, le=1.0)
+    repository_weight: float = Field(default=0.5, ge=0.0, le=1.0)
+    behavior_weight: float = Field(default=0.5, ge=0.0, le=1.0)
 
 
 class ExpertInputPackage(StrictModel):
@@ -271,6 +300,7 @@ class CouncilResult(StrictModel):
     council_score: float = Field(ge=0.0, le=1.0)
     needs_human_review: bool
     rationale: str
+    evaluation_mode: EvaluationMode = "repository_only"
     decision_rule_triggered: str = ""
     initial_decision: Decision | None = None
     initial_decision_rule_triggered: str = ""
@@ -283,6 +313,8 @@ class CouncilResult(StrictModel):
     triggered_by: list[str] = Field(default_factory=list)
     key_evidence: list[str] = Field(default_factory=list)
     ignored_signals: list[str] = Field(default_factory=list)
+    channel_scores: CouncilChannelScores | None = None
+    score_basis: str = ""
     decision_rule_version: str = "matrix-v2"
     metadata: CouncilMetadata | None = None
 

@@ -157,6 +157,8 @@ class Team3RiskExpert(ExpertModule):
         elif rule_baseline.get("findings"):
             verdict.findings = [*rule_baseline["findings"], *verdict.findings]
         verdict.confidence = 0.72
+        if request.behavior_summary is not None and request.behavior_summary.uncertainty_flag:
+            verdict.confidence = max(0.5, verdict.confidence - 0.1)
         return verdict
 
     def _evaluate_rule_baseline(self, request: EvaluationRequest) -> dict[str, Any]:
@@ -209,6 +211,12 @@ class Team3RiskExpert(ExpertModule):
                     risk_tier = "TIER_2"
             elif behavior.risk_notes:
                 findings.append(f"Behavior lens: {behavior.risk_notes[0]}")
+            if behavior.multilingual_flag_applied:
+                findings.append(
+                    f"Behavior lens: multilingual runtime evidence was present across {', '.join(behavior.detected_languages[:3])}."
+                )
+            if behavior.uncertainty_flag:
+                findings.append("Behavior lens: multilingual interpretation uncertainty requires a conservative deployment review.")
 
         if domain in self.PROHIBITED_DOMAINS:
             risk_tier = "TIER_4"
@@ -326,6 +334,12 @@ class Team3RiskExpert(ExpertModule):
                 findings.append(f"Behavior lens: {', '.join(behavior.system_signals[:3])}.")
             elif behavior.risk_notes:
                 findings.append(f"Behavior lens: {behavior.risk_notes[0]}")
+            if behavior.multilingual_flag_applied:
+                findings.append(
+                    f"Behavior lens: multilingual evidence was observed across {', '.join(behavior.detected_languages[:3])}."
+                )
+            if behavior.uncertainty_flag:
+                findings.append("Behavior lens: multilingual uncertainty reduced confidence in the observed runtime behavior.")
 
         target_name = repo.target_name if repo is not None else input_package.context.agent_name
         if repo is not None and repo.upload_surfaces and repo.llm_backends and "no_explicit_auth" in repo.auth_signals:
@@ -348,9 +362,13 @@ class Team3RiskExpert(ExpertModule):
             rule_baseline=extra_evidence.pop("rule_baseline", {}),
             notes=findings,
         )
+        confidence = 0.75
+        if behavior is not None and behavior.uncertainty_flag:
+            confidence = max(0.5, confidence - 0.1)
+
         return self._make_verdict(
             risk_score=max(0.0, min(1.0, risk_score)),
-            confidence=0.75,
+            confidence=confidence,
             critical=critical,
             risk_tier=risk_tier,
             summary=summary,

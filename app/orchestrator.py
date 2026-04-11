@@ -31,6 +31,24 @@ from app.schemas import (
 from app.slm import get_slm_runner
 from app.targets import HTTPTextTarget
 
+EXPERT_TAXONOMY = {
+    "team1_policy_expert": {
+        "taxonomy_slug": "expert_3_governance",
+        "taxonomy_label": "Governance, Compliance & Societal Risk",
+        "legacy_label": "Policy & Compliance",
+    },
+    "team2_redteam_expert": {
+        "taxonomy_slug": "expert_2_content",
+        "taxonomy_label": "Data, Content & Behavioral Safety",
+        "legacy_label": "Adversarial Misuse",
+    },
+    "team3_risk_expert": {
+        "taxonomy_slug": "expert_1_security",
+        "taxonomy_label": "Security & Adversarial Robustness",
+        "legacy_label": "System & Deployment",
+    },
+}
+
 
 class SafetyLabOrchestrator:
     def __init__(self) -> None:
@@ -76,11 +94,27 @@ class SafetyLabOrchestrator:
 
             initial_verdicts = [expert.assess(enriched_request) for expert in self.experts]
             initial_verdicts = self._attach_expert_metadata(initial_verdicts)
-            initial_council = self._attach_council_metadata(synthesize_council(initial_verdicts), initial_verdicts)
+            initial_council = self._attach_council_metadata(
+                synthesize_council(
+                    initial_verdicts,
+                    evaluation_mode=enriched_request.evaluation_mode,
+                    behavior_summary=behavior_summary,
+                    repository_summary=repository_summary,
+                ),
+                initial_verdicts,
+            )
 
             deliberation_result = run_deliberation(enriched_request, initial_verdicts)
             expert_verdicts = self._attach_expert_metadata(deliberation_result.revised_verdicts)
-            council_result = self._attach_council_metadata(synthesize_council(expert_verdicts), expert_verdicts).model_copy(
+            council_result = self._attach_council_metadata(
+                synthesize_council(
+                    expert_verdicts,
+                    evaluation_mode=enriched_request.evaluation_mode,
+                    behavior_summary=behavior_summary,
+                    repository_summary=repository_summary,
+                ),
+                expert_verdicts,
+            ).model_copy(
                 update={
                     "initial_decision": initial_council.decision,
                     "initial_decision_rule_triggered": initial_council.decision_rule_triggered,
@@ -282,6 +316,7 @@ class SafetyLabOrchestrator:
             target_output_turns=[ConversationTurn(role="assistant", content=record.response) for record in target_execution.records],
             target_execution=target_execution,
             repository_summary=repository_summary,
+            metadata=request.metadata,
         )
 
     def _build_expert_input(
@@ -402,6 +437,9 @@ class SafetyLabOrchestrator:
             actual_backend=str(evidence.get("configured_backend", self._runner_backend_label(expert))),
             fallback_reason=str(evidence.get("fallback_reason", "")),
             judge_version="v1",
+            taxonomy_slug=EXPERT_TAXONOMY.get(expert.name, {}).get("taxonomy_slug", ""),
+            taxonomy_label=EXPERT_TAXONOMY.get(expert.name, {}).get("taxonomy_label", ""),
+            legacy_label=EXPERT_TAXONOMY.get(expert.name, {}).get("legacy_label", ""),
         )
 
     def _runner_mode(self, expert: Any) -> str:

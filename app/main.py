@@ -203,7 +203,12 @@ def smoke_test() -> dict[str, object]:
             "fallback_reason": str(verdict.evidence.get("fallback_reason", "")),
         }
 
-    council = synthesize_council(verdicts)
+    council = synthesize_council(
+        verdicts,
+        evaluation_mode=request.evaluation_mode,
+        behavior_summary=behavior_summary,
+        repository_summary=repository_summary,
+    )
     return {
         "smoke_test": "pass",
         "llm_backend": orchestrator.version.expert_model_backend,
