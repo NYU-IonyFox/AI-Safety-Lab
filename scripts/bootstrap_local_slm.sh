@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PYTHON_BIN="${PYTHON_BIN:-python3}"
-MODEL_PRESET="${MODEL_PRESET:-gemma3-270m-it}"
+MODEL_PRESET="${MODEL_PRESET:-qwen2.5-0.5b}"
 START_DEMO=0
 SKIP_SMOKE_TEST=0
 
@@ -13,12 +13,14 @@ usage() {
 Usage: ./scripts/bootstrap_local_slm.sh [--preset <name>] [--start-demo] [--skip-smoke-test]
 
 Presets:
-  gemma3-270m-it      Lightweight default for first local SLM bring-up
+  qwen2.5-0.5b        Default ungated bring-up preset for first local SLM run
+  smollm2-1.7b        Ungated mid-size fallback with better headroom than 0.5B
+  gemma3-270m-it      Lightweight Gemma path if you want the Google model family
   gemma3-4b-fp16      Stronger GPU preset for higher-quality council output
-  qwen2.5-0.5b        Small fallback if Gemma access is unavailable
 
 Examples:
   ./scripts/bootstrap_local_slm.sh
+  ./scripts/bootstrap_local_slm.sh --preset smollm2-1.7b
   ./scripts/bootstrap_local_slm.sh --preset gemma3-4b-fp16
   MODEL_PRESET=gemma3-4b-fp16 ./scripts/bootstrap_local_slm.sh --start-demo
 EOF
@@ -51,6 +53,22 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "${MODEL_PRESET}" in
+  qwen2.5-0.5b)
+    MODEL_ID="Qwen/Qwen2.5-0.5B-Instruct"
+    DEVICE="${LOCAL_HF_DEVICE:-auto}"
+    DTYPE="${LOCAL_HF_DTYPE:-auto}"
+    DEVICE_MAP="${LOCAL_HF_DEVICE_MAP:-none}"
+    MAX_NEW_TOKENS="${LOCAL_HF_MAX_NEW_TOKENS:-256}"
+    MAX_INPUT_CHARS="${LOCAL_HF_MAX_INPUT_CHARS:-8000}"
+    ;;
+  smollm2-1.7b)
+    MODEL_ID="HuggingFaceTB/SmolLM2-1.7B-Instruct"
+    DEVICE="${LOCAL_HF_DEVICE:-auto}"
+    DTYPE="${LOCAL_HF_DTYPE:-auto}"
+    DEVICE_MAP="${LOCAL_HF_DEVICE_MAP:-auto}"
+    MAX_NEW_TOKENS="${LOCAL_HF_MAX_NEW_TOKENS:-256}"
+    MAX_INPUT_CHARS="${LOCAL_HF_MAX_INPUT_CHARS:-8000}"
+    ;;
   gemma3-270m-it)
     MODEL_ID="google/gemma-3-270m-it"
     DEVICE="cuda"
@@ -66,14 +84,6 @@ case "${MODEL_PRESET}" in
     DEVICE_MAP="auto"
     MAX_NEW_TOKENS="${LOCAL_HF_MAX_NEW_TOKENS:-288}"
     MAX_INPUT_CHARS="${LOCAL_HF_MAX_INPUT_CHARS:-10000}"
-    ;;
-  qwen2.5-0.5b)
-    MODEL_ID="Qwen/Qwen2.5-0.5B-Instruct"
-    DEVICE="${LOCAL_HF_DEVICE:-auto}"
-    DTYPE="${LOCAL_HF_DTYPE:-auto}"
-    DEVICE_MAP="${LOCAL_HF_DEVICE_MAP:-none}"
-    MAX_NEW_TOKENS="${LOCAL_HF_MAX_NEW_TOKENS:-256}"
-    MAX_INPUT_CHARS="${LOCAL_HF_MAX_INPUT_CHARS:-8000}"
     ;;
   *)
     echo "Unsupported preset: ${MODEL_PRESET}" >&2

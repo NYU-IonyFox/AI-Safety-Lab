@@ -245,9 +245,10 @@ If you want a one-command local-HF setup that installs dependencies, preloads th
 ./scripts/bootstrap_local_slm.sh
 ```
 
-The default preset is `google/gemma-3-270m-it`, which is a practical first bring-up target for a single-GPU machine. You can keep the same flow and switch to a stronger model later:
+The default preset is `Qwen/Qwen2.5-0.5B-Instruct`, which is a practical ungated bring-up target for a clean machine. You can keep the same flow and switch to stronger or alternative models later:
 
 ```bash
+./scripts/bootstrap_local_slm.sh --preset smollm2-1.7b
 ./scripts/bootstrap_local_slm.sh --preset gemma3-4b-fp16
 ./scripts/bootstrap_local_slm.sh --preset qwen2.5-0.5b
 ```
@@ -260,6 +261,11 @@ The `gemma3-4b-fp16` preset is tuned for a local CUDA machine:
 - `LOCAL_HF_DEVICE_MAP=auto`
 - `LOCAL_HF_TEMPERATURE=0.0`
 - `LOCAL_HF_TOP_P=1.0`
+
+Other low-friction public presets:
+
+- `qwen2.5-0.5b` → `Qwen/Qwen2.5-0.5B-Instruct`
+- `smollm2-1.7b` → `HuggingFaceTB/SmolLM2-1.7B-Instruct`
 
 To bootstrap and immediately start both the backend and the Streamlit UI:
 
