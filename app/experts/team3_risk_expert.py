@@ -216,6 +216,8 @@ class Team3RiskExpert(ExpertModule):
             "risk_score": risk_score,
             "critical": critical,
             "findings": findings,
+            "system_scope_scan_mode": system_scope.scan_mode if system_scope is not None else "none",
+            "system_scope_scanned_file_count": system_scope.scanned_file_count if system_scope is not None else 0,
             "system_scope_evidence": [item.model_dump() for item in system_scope.evidence_items] if system_scope is not None else [],
         }
 
@@ -337,6 +339,8 @@ class Team3RiskExpert(ExpertModule):
                 "safety_score": round(safety_score, 2),
                 "pass_rate": round(pass_rate, 2),
                 "rule_baseline": baseline_snapshot,
+                "system_scope_scan_mode": baseline_snapshot.get("system_scope_scan_mode", "none") if isinstance(baseline_snapshot, dict) else "none",
+                "system_scope_scanned_file_count": baseline_snapshot.get("system_scope_scanned_file_count", 0) if isinstance(baseline_snapshot, dict) else 0,
                 "system_scope_evidence": baseline_snapshot.get("system_scope_evidence", []) if isinstance(baseline_snapshot, dict) else [],
                 **extra_evidence,
             },

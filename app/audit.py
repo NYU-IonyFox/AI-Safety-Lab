@@ -11,9 +11,13 @@ from app.schemas import CouncilResult, EvaluationRequest, ExpertVerdict
 REDACTED = "[REDACTED]"
 
 
-def _ensure_paths() -> None:
+def ensure_storage_ready() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _ensure_paths() -> None:
+    ensure_storage_ready()
 
 
 def _mask_endpoint(endpoint: str) -> str:

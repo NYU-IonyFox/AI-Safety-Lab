@@ -13,6 +13,8 @@ MAX_FILES = 120
 
 @dataclass(slots=True)
 class PolicyScopeAnalysis:
+    scan_mode: str = "none"
+    scanned_file_count: int = 0
     governance_controls: list[str] = field(default_factory=list)
     policy_gaps: list[str] = field(default_factory=list)
     processor_mentions: list[str] = field(default_factory=list)
@@ -85,6 +87,8 @@ def analyze_policy_scope(repo_path: str, repository_summary: RepositorySummary |
         )
 
     return PolicyScopeAnalysis(
+        scan_mode="local_scan",
+        scanned_file_count=len(text_files),
         governance_controls=controls[:5],
         policy_gaps=gaps[:5],
         processor_mentions=processor_mentions[:3],

@@ -54,15 +54,18 @@ def _build_critique(
     target_text = " ".join([target.summary, *target.findings]).lower()
     severity_gap = author.risk_score - target.risk_score
     evidence_refs = _default_refs(repository_summary)
+    upload_path = _upload_anchor(repository_summary)
+    backend_label = _backend_anchor(repository_summary)
+    secret_label = _secret_anchor(repository_summary)
 
     if author.expert_name == "team1_policy_expert":
         missing: list[str] = []
         if "no_explicit_auth" in repository_summary.auth_signals and _lacks(target_text, ["auth", "access control", "authorization"]):
-            missing.append("visible access-control obligations")
+            missing.append(f"visible access-control obligations around `{upload_path}`")
         if repository_summary.llm_backends and _lacks(target_text, ["third-party", "external model", "accountability", "processor"]):
-            missing.append("third-party model governance")
+            missing.append(f"third-party model governance for {backend_label}")
         if repository_summary.upload_surfaces and _lacks(target_text, ["upload", "intake", "retention", "moderation"]):
-            missing.append("documented intake controls")
+            missing.append(f"documented intake controls for `{upload_path}`")
         if missing:
             return DeliberationExchange(
                 phase="critique",
@@ -84,11 +87,11 @@ def _build_critique(
     if author.expert_name == "team2_redteam_expert":
         missing = []
         if repository_summary.upload_surfaces and _lacks(target_text, ["malicious file", "hostile file", "payload chain", "prompt-injection"]):
-            missing.append("hostile file ingestion risk")
+            missing.append(f"hostile file ingestion risk on `{upload_path}`")
         if repository_summary.llm_backends and _lacks(target_text, ["prompt", "jailbreak", "misuse", "abuse"]):
-            missing.append("prompt-injection or misuse pathways")
+            missing.append(f"prompt-injection or misuse pathways into {backend_label}")
         if "no_explicit_auth" in repository_summary.auth_signals and _lacks(target_text, ["unauthenticated", "abuse", "misuse", "rate"]):
-            missing.append("automated unauthenticated abuse risk")
+            missing.append(f"automated unauthenticated abuse risk on `{upload_path}`")
         if missing:
             return DeliberationExchange(
                 phase="critique",
@@ -110,11 +113,11 @@ def _build_critique(
     if author.expert_name == "team3_risk_expert":
         missing = []
         if repository_summary.upload_surfaces and repository_summary.llm_backends and _lacks(target_text, ["system", "deployment", "boundary", "pipeline"]):
-            missing.append("system-boundary exposure")
+            missing.append(f"system-boundary exposure from `{upload_path}` into {backend_label}")
         if any(signal.startswith("default_secret_key") for signal in repository_summary.secret_signals) and _lacks(target_text, ["secret", "session", "deployment hardening"]):
-            missing.append("deployment hardening weakness")
+            missing.append(f"deployment hardening weakness tied to {secret_label}")
         if repository_summary.media_modalities and _lacks(target_text, ["media", "conversion", "transcription", "runtime", "pipeline"]):
-            missing.append("runtime handling of multimedia content")
+            missing.append("runtime handling of multimedia conversion and transcription steps")
         if missing:
             return DeliberationExchange(
                 phase="critique",
@@ -249,6 +252,29 @@ def _default_refs(repository_summary: RepositorySummary | None) -> list[str]:
     if repository_summary is None:
         return []
     return [item.path for item in repository_summary.evidence_items[:3]]
+
+
+def _upload_anchor(repository_summary: RepositorySummary | None) -> str:
+    if repository_summary is None:
+        return "the intake workflow"
+    for path in repository_summary.entrypoints:
+        if "upload" in path.lower():
+            return path
+    return repository_summary.entrypoints[0] if repository_summary.entrypoints else "the intake workflow"
+
+
+def _backend_anchor(repository_summary: RepositorySummary | None) -> str:
+    if repository_summary is None or not repository_summary.llm_backends:
+        return "external AI services"
+    return ", ".join(repository_summary.llm_backends[:3])
+
+
+def _secret_anchor(repository_summary: RepositorySummary | None) -> str:
+    if repository_summary is None or not repository_summary.secret_signals:
+        return "secret-key configuration"
+    if any(signal.startswith("default_secret_key") for signal in repository_summary.secret_signals):
+        return "the default secret-key fallback"
+    return repository_summary.secret_signals[0]
 
 
 def _flatten_refs(critiques: list[DeliberationExchange]) -> list[str]:

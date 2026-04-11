@@ -316,7 +316,10 @@ class SafetyLabOrchestrator:
         )
 
     def _runner_mode(self, expert: Any) -> str:
-        return "slm" if getattr(expert, "runner", None) is not None else "rules"
+        should_use_slm = getattr(expert, "_should_use_slm", None)
+        if callable(should_use_slm) and should_use_slm():
+            return "slm"
+        return "rules"
 
     def _infer_team_name(self, expert_name: str) -> str:
         if expert_name.startswith("team1_"):

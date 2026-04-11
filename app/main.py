@@ -1,11 +1,21 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException
 
+from app.audit import ensure_storage_ready
 from app.council import synthesize_council
 from app.intake.submission_service import SubmissionError
 from app.orchestrator import SafetyLabOrchestrator
 from app.schemas import AgentContext, EvaluationRequest, EvaluationResponse, SubmissionTarget
 
-app = FastAPI(title="UNICC AI Safety Lab", version="0.3.0")
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    ensure_storage_ready()
+    yield
+
+
+app = FastAPI(title="UNICC AI Safety Lab", version="0.3.0", lifespan=lifespan)
 orchestrator = SafetyLabOrchestrator()
 
 

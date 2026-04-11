@@ -192,12 +192,44 @@ def decision_rule_label(rule_name: str) -> str:
     return DECISION_RULE_LABELS.get(rule_name, rule_name.replace("_", " "))
 
 
+def disagreement_label(value: float) -> str:
+    if value >= 0.35:
+        return f"High ({value:.2f})"
+    if value >= 0.15:
+        return f"Moderate ({value:.2f})"
+    return f"Low ({value:.2f})"
+
+
+def _upload_path(repo: dict | None, expert: dict | None = None) -> str:
+    repo = repo or {}
+    for path in repo.get("entrypoints", []):
+        if isinstance(path, str) and "upload" in path.lower():
+            return path
+    evidence = expert.get("evidence", {}) if isinstance(expert, dict) else {}
+    surface = evidence.get("redteam_surface", {}) if isinstance(evidence, dict) else {}
+    if isinstance(surface, dict):
+        for route in surface.get("route_inventory", []):
+            if isinstance(route, dict) and route.get("has_upload") and route.get("path"):
+                return str(route.get("path"))
+    return "the intake workflow"
+
+
+def _backend_label(repo: dict | None) -> str:
+    repo = repo or {}
+    backends = [str(item) for item in repo.get("llm_backends", []) if str(item).strip()]
+    if not backends:
+        return "external AI services"
+    return ", ".join(backends[:3])
+
+
 def expert_evidence_lines(expert: dict) -> list[str]:
     evidence = expert.get("evidence", {}) if isinstance(expert, dict) else {}
     expert_name = str(expert.get("expert_name", ""))
 
     if expert_name == "team1_policy_expert":
         lines = []
+        if evidence.get("policy_scope_scan_mode") == "local_scan":
+            lines.append(f"Independent policy scan across {int(evidence.get('policy_scope_scanned_file_count', 0))} files.")
         controls = [str(item) for item in evidence.get("policy_scope_controls", []) if str(item).strip()]
         if controls:
             normalized = [item.rstrip(".") for item in controls[:3]]
@@ -209,6 +241,9 @@ def expert_evidence_lines(expert: dict) -> list[str]:
 
     if expert_name == "team2_redteam_expert":
         lines = []
+        surface = evidence.get("redteam_surface", {})
+        if isinstance(surface, dict) and surface.get("scan_mode") == "local_scan":
+            lines.append(f"Independent red-team scan across {int(surface.get('public_route_count', 0))} public route(s) and {len(surface.get('scenario_library', []))} generated abuse scenario(s).")
         taxonomy = evidence.get("taxonomy", {})
         if isinstance(taxonomy, dict):
             owasp = [str(item) for item in taxonomy.get("owasp_categories", []) if str(item).strip()]
@@ -217,7 +252,6 @@ def expert_evidence_lines(expert: dict) -> list[str]:
                 lines.append(f"OWASP categories: {', '.join(owasp[:3])}.")
             if mitre:
                 lines.append(f"MITRE-style tactics: {', '.join(mitre[:3])}.")
-        surface = evidence.get("redteam_surface", {})
         if isinstance(surface, dict):
             signals = [str(item) for item in surface.get("surface_signals", []) if str(item).strip()]
             if signals:
@@ -226,6 +260,8 @@ def expert_evidence_lines(expert: dict) -> list[str]:
 
     if expert_name == "team3_risk_expert":
         lines = []
+        if evidence.get("system_scope_scan_mode") == "local_scan":
+            lines.append(f"Independent system scan across {int(evidence.get('system_scope_scanned_file_count', 0))} files.")
         for item in evidence.get("system_scope_evidence", [])[:2]:
             if isinstance(item, dict):
                 lines.append(f"{item.get('path', 'unknown')}: {item.get('signal', 'System evidence')}.")
@@ -237,32 +273,37 @@ def expert_evidence_lines(expert: dict) -> list[str]:
     return []
 
 
-def stakeholder_takeaway_lines(expert: dict) -> list[str]:
+def stakeholder_takeaway_lines(expert: dict, repo: dict | None) -> list[str]:
     expert_name = str(expert.get("expert_name", ""))
+    repo = repo or {}
+    upload_path = _upload_path(repo, expert)
+    backend_label = _backend_label(repo)
+    has_no_auth = "no_explicit_auth" in {str(item) for item in repo.get("auth_signals", [])}
     findings_text = " ".join(str(item) for item in expert.get("findings", [])).lower()
 
     if expert_name == "team1_policy_expert":
-        lines = [
-            "This review checks whether a public AI workflow has clear access, oversight, and accountability controls.",
-            "The repository exposes a user upload path without clear access-control and escalation controls around that intake flow.",
-            "Because external AI services are involved, ownership, review, and retention expectations should be documented before sign-off.",
-        ]
+        lines = [f"This review checks whether `{upload_path}` and the broader intake workflow have clear access, oversight, and accountability controls."]
+        if has_no_auth:
+            lines.append(f"No explicit access-control layer is visible around `{upload_path}`, which weakens the governance story for public intake.")
+        if repo.get("llm_backends"):
+            lines.append(f"Because {backend_label} process submitted content, retention, escalation, and third-party accountability expectations should be documented before sign-off.")
         return lines[:3]
 
     if expert_name == "team2_redteam_expert":
-        lines = [
-            "This review asks how a real attacker could misuse the repository in practice.",
-            "The upload workflow creates a credible hostile-file and prompt-injection path before safeguards clearly stop abuse.",
-            "That means the system can be operationally abused, not just theoretically criticized on policy grounds.",
-        ]
+        lines = [f"This review asks how a real attacker could misuse `{upload_path}` in practice."]
+        if repo.get("llm_backends"):
+            lines.append(f"The route into {backend_label} creates a concrete hostile-file or prompt-injection path before safeguards clearly stop abuse.")
+        else:
+            lines.append("The exposed intake workflow creates a concrete hostile-file or misuse path before safeguards clearly stop abuse.")
+        lines.append("That means the repository can be operationally abused, not just theoretically criticized.")
         return lines[:3]
 
     if expert_name == "team3_risk_expert":
-        lines = [
-            "This review focuses on the deployed system boundary rather than only prompts or policy wording.",
-            "The same workflow combines public uploads, local media processing, and external AI services in one chain.",
-            "That architecture needs stronger isolation, authentication, and deployment hardening before production use.",
-        ]
+        lines = [f"This review focuses on the deployed system boundary around `{upload_path}`, not only prompts or policy wording."]
+        if repo.get("llm_backends"):
+            lines.append(f"The same workflow combines public uploads, local media processing, and {backend_label} in one chain.")
+        if has_no_auth or "secret-key" in findings_text or "secret key" in findings_text:
+            lines.append("That architecture needs stronger authentication, isolation, and deployment hardening before production use.")
         return lines[:3]
 
     if "upload" in findings_text:
@@ -279,12 +320,17 @@ def deliberation_summary_lines(council: dict) -> list[str]:
     critiques = [item for item in trace if item.get("phase") == "critique"]
     revisions = [item for item in trace if item.get("phase") == "revision"]
 
-    if any(item.get("author_expert") == "team2_redteam_expert" for item in critiques):
-        lines.append("The adversarial expert asked peers to account for hostile-file and prompt-injection risk.")
-    if any(item.get("author_expert") == "team3_risk_expert" for item in critiques):
-        lines.append("The system expert asked peers to reflect deployment-boundary and hardening gaps.")
-    if any(item.get("author_expert") == "team1_policy_expert" for item in critiques):
-        lines.append("The policy expert pushed the council to reflect access-control and governance obligations.")
+    for item in critiques[:3]:
+        author = expert_title(item.get("author_expert", "expert"))
+        target = expert_title(item.get("target_expert", "expert"))
+        summary = str(item.get("summary", ""))
+        concern = summary.split(": ", 1)[1] if ": " in summary else summary
+        concern = concern.replace(str(item.get("target_expert", "")), target)
+        for prefix in [f"{target} should more clearly reflect ", f"{target} did not fully account for ", f"{target} underweighted "]:
+            if concern.startswith(prefix):
+                concern = concern[len(prefix):]
+                break
+        lines.append(f"{author} challenged {target} on {concern.rstrip('.')}.")
     if revisions:
         revision_summary = ", ".join(
             f"{expert_title(item.get('author_expert', 'expert'))} {item.get('risk_delta', 0):+.2f}" for item in revisions[:3]
@@ -567,7 +613,7 @@ def render_repository_summary(repo: dict) -> None:
         st.markdown("</div>", unsafe_allow_html=True)
 
 
-def render_expert_panels(experts: list[dict]) -> None:
+def render_expert_panels(experts: list[dict], repo: dict | None) -> None:
     st.subheader("Three expert modules")
     columns = st.columns(3)
     for idx, expert in enumerate(experts[:3]):
@@ -578,7 +624,7 @@ def render_expert_panels(experts: list[dict]) -> None:
             st.markdown(f"**Risk tier:** {expert.get('risk_tier', 'UNKNOWN')}")
             st.markdown(f"**Bottom line:** {expert.get('summary', '')}")
             st.markdown("**What this means**")
-            for line in stakeholder_takeaway_lines(expert):
+            for line in stakeholder_takeaway_lines(expert, repo):
                 st.markdown(f"- {line}")
             evidence_lines = expert_evidence_lines(expert)
             if evidence_lines:
@@ -600,6 +646,7 @@ def render_council_panel(result: dict) -> None:
     tone = tone_for_decision(result["decision"])
     rule_name = decision_rule_label(council.get("decision_rule_triggered", ""))
     triggered_by = ", ".join(trigger_label(item) for item in council.get("triggered_by", [])) or "None"
+    disagreement_value = float(council.get("disagreement_index", 0))
 
     st.subheader("Council synthesis")
     c1, c2, c3 = st.columns(3)
@@ -608,7 +655,7 @@ def render_council_panel(result: dict) -> None:
     with c2:
         render_metric("Arbitration rule", rule_name, "tone-blue", "Explicit council rule that drove the final verdict.")
     with c3:
-        render_metric("Disagreement", f"{council.get('disagreement_index', 0):.2f}", "tone-blue", "Cross-expert divergence indicator.")
+        render_metric("Disagreement", disagreement_label(disagreement_value), "tone-blue", "How far apart the experts were. Low means they broadly agreed.")
 
     st.markdown("<div class='section-card'>", unsafe_allow_html=True)
     st.markdown(f"**Rationale:** {council.get('rationale', '')}")
@@ -684,8 +731,9 @@ def render_result() -> None:
     if not result:
         return
 
-    render_repository_summary(result.get("repository_summary", {}))
-    render_expert_panels(result.get("experts", []))
+    repo = result.get("repository_summary", {})
+    render_repository_summary(repo)
+    render_expert_panels(result.get("experts", []), repo)
     render_council_panel(result)
     render_artifacts(result)
 

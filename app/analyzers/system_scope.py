@@ -13,6 +13,8 @@ MAX_FILES = 120
 
 @dataclass(slots=True)
 class SystemScopeAnalysis:
+    scan_mode: str = "none"
+    scanned_file_count: int = 0
     exposure_findings: list[str] = field(default_factory=list)
     control_findings: list[str] = field(default_factory=list)
     evidence_items: list[RepositoryEvidence] = field(default_factory=list)
@@ -59,6 +61,8 @@ def analyze_system_scope(repo_path: str, repository_summary: RepositorySummary |
             exposures.append("Default secret fallback indicates deployment hardening is incomplete.")
 
     return SystemScopeAnalysis(
+        scan_mode="local_scan",
+        scanned_file_count=len(text_files),
         exposure_findings=_dedupe(exposures)[:6],
         control_findings=_dedupe(controls)[:4],
         evidence_items=_dedupe_evidence(evidence)[:6],

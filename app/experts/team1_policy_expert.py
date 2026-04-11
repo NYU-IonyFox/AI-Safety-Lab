@@ -272,6 +272,8 @@ class Team1PolicyExpert(ExpertModule):
             evidence={
                 "selected_policies": input_package.selected_policies,
                 "violations": violations,
+                "policy_scope_scan_mode": policy_scope.scan_mode if policy_scope is not None else "none",
+                "policy_scope_scanned_file_count": policy_scope.scanned_file_count if policy_scope is not None else 0,
                 "policy_scope_controls": policy_scope.governance_controls if policy_scope is not None else [],
                 "policy_scope_evidence": [item.model_dump() for item in policy_scope.evidence_items] if policy_scope is not None else [],
             },
