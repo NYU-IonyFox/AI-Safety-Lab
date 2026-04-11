@@ -23,6 +23,7 @@ class LocalHFRunner(SLMRunner):
         self.top_p = float(os.getenv("LOCAL_HF_TOP_P", "0.9"))
         self.device_pref = os.getenv("LOCAL_HF_DEVICE", "auto").strip().lower()
         self.dtype_pref = os.getenv("LOCAL_HF_DTYPE", "auto").strip().lower()
+        self.device_map_pref = os.getenv("LOCAL_HF_DEVICE_MAP", "auto").strip().lower()
 
         self._runtime_ready = False
         self._tokenizer: Any | None = None
@@ -68,11 +69,12 @@ class LocalHFRunner(SLMRunner):
         torch_dtype = self._resolve_dtype(torch_mod, runtime_device)
 
         tokenizer = auto_tokenizer.from_pretrained(self.model_id)
-        model_kwargs: dict[str, Any] = {}
-        if torch_dtype is not None:
-            model_kwargs["torch_dtype"] = torch_dtype
+        model_kwargs = self._resolve_model_load_kwargs(torch_dtype, runtime_device)
         model = auto_model.from_pretrained(self.model_id, **model_kwargs)
-        model.to(runtime_device)
+        if "device_map" not in model_kwargs:
+            model.to(runtime_device)
+        else:
+            runtime_device = f"{runtime_device}:{model_kwargs['device_map']}"
         model.eval()
 
         if tokenizer.pad_token_id is None and tokenizer.eos_token_id is not None:
@@ -118,6 +120,14 @@ class LocalHFRunner(SLMRunner):
             return torch_mod.float16
         return None
 
+    def _resolve_model_load_kwargs(self, torch_dtype: Any | None, runtime_device: str) -> dict[str, Any]:
+        model_kwargs: dict[str, Any] = {}
+        if torch_dtype is not None:
+            model_kwargs["torch_dtype"] = torch_dtype
+        if runtime_device == "cuda" and self.device_map_pref not in {"", "none", "off", "false"}:
+            model_kwargs["device_map"] = "auto" if self.device_map_pref == "auto" else self.device_map_pref
+        return model_kwargs
+
     def describe(self) -> dict[str, str]:
         return {"backend": self.backend_name, "model_id": self.model_id}
 
@@ -156,7 +166,7 @@ class LocalHFRunner(SLMRunner):
         optional_keys = ", ".join(response_contract.get("optional", []))
         contract_notes = str(response_contract.get("notes", "")).strip()
 
-        prompt = (
+        user_prompt = (
             f"{system_prompt.strip()}\n\n"
             "You are an AI safety evaluation backend.\n"
             "Return exactly one JSON object and no extra text.\n"
@@ -171,7 +181,7 @@ class LocalHFRunner(SLMRunner):
         torch_mod = self._torch
         device = self._runtime_device
 
-        inputs = tokenizer(prompt, return_tensors="pt", truncation=True)
+        inputs = self._tokenize_prompt(tokenizer, system_prompt.strip(), user_prompt)
         inputs = {k: v.to(device) for k, v in inputs.items()}
 
         do_sample = self.temperature > 0.0
@@ -191,6 +201,25 @@ class LocalHFRunner(SLMRunner):
 
         completion_ids = output_ids[0][inputs["input_ids"].shape[1] :]
         return tokenizer.decode(completion_ids, skip_special_tokens=True).strip()
+
+    def _tokenize_prompt(self, tokenizer: Any, system_prompt: str, user_prompt: str) -> dict[str, Any]:
+        chat_template = getattr(tokenizer, "apply_chat_template", None)
+        if callable(chat_template):
+            messages = []
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            messages.append({"role": "user", "content": user_prompt})
+            try:
+                return chat_template(
+                    messages,
+                    tokenize=True,
+                    add_generation_prompt=True,
+                    return_tensors="pt",
+                    truncation=True,
+                )
+            except TypeError:
+                pass
+        return tokenizer(user_prompt, return_tensors="pt", truncation=True)
 
     def _parse_json_object(self, text: str) -> dict[str, Any] | None:
         raw = text.strip()

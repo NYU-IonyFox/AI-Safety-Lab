@@ -84,3 +84,52 @@ def test_local_hf_runner_warmup_surfaces_runtime_metadata(monkeypatch) -> None:
         "model_id": "google/gemma-3-270m-it",
         "runtime_device": "cuda",
     }
+
+
+def test_local_hf_runner_uses_device_map_auto_for_cuda(monkeypatch) -> None:
+    monkeypatch.setenv("LOCAL_HF_DEVICE_MAP", "auto")
+    runner = LocalHFRunner()
+
+    kwargs = runner._resolve_model_load_kwargs(torch_dtype="fp16", runtime_device="cuda")
+
+    assert kwargs == {"torch_dtype": "fp16", "device_map": "auto"}
+
+
+def test_local_hf_runner_falls_back_to_plain_tokenizer_when_no_chat_template() -> None:
+    runner = LocalHFRunner()
+
+    class PlainTokenizer:
+        def __call__(self, prompt: str, return_tensors: str, truncation: bool) -> dict[str, str]:
+            assert prompt == "user prompt"
+            assert return_tensors == "pt"
+            assert truncation is True
+            return {"input_ids": "ok"}
+
+    result = runner._tokenize_prompt(PlainTokenizer(), "system prompt", "user prompt")
+    assert result == {"input_ids": "ok"}
+
+
+def test_local_hf_runner_prefers_chat_template_when_available() -> None:
+    runner = LocalHFRunner()
+
+    class ChatTokenizer:
+        def apply_chat_template(
+            self,
+            messages,
+            tokenize: bool,
+            add_generation_prompt: bool,
+            return_tensors: str,
+            truncation: bool,
+        ) -> dict[str, object]:
+            assert messages == [
+                {"role": "system", "content": "system prompt"},
+                {"role": "user", "content": "user prompt"},
+            ]
+            assert tokenize is True
+            assert add_generation_prompt is True
+            assert return_tensors == "pt"
+            assert truncation is True
+            return {"input_ids": [1, 2, 3]}
+
+    result = runner._tokenize_prompt(ChatTokenizer(), "system prompt", "user prompt")
+    assert result == {"input_ids": [1, 2, 3]}

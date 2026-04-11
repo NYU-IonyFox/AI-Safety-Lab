@@ -252,6 +252,15 @@ The default preset is `google/gemma-3-270m-it`, which is a practical first bring
 ./scripts/bootstrap_local_slm.sh --preset qwen2.5-0.5b
 ```
 
+The `gemma3-4b-fp16` preset is tuned for a local CUDA machine:
+
+- `LOCAL_HF_MODEL_ID=google/gemma-3-4b-it`
+- `LOCAL_HF_DEVICE=cuda`
+- `LOCAL_HF_DTYPE=float16`
+- `LOCAL_HF_DEVICE_MAP=auto`
+- `LOCAL_HF_TEMPERATURE=0.0`
+- `LOCAL_HF_TOP_P=1.0`
+
 To bootstrap and immediately start both the backend and the Streamlit UI:
 
 ```bash

@@ -55,19 +55,25 @@ case "${MODEL_PRESET}" in
     MODEL_ID="google/gemma-3-270m-it"
     DEVICE="cuda"
     DTYPE="float16"
+    DEVICE_MAP="auto"
     MAX_NEW_TOKENS="${LOCAL_HF_MAX_NEW_TOKENS:-256}"
+    MAX_INPUT_CHARS="${LOCAL_HF_MAX_INPUT_CHARS:-8000}"
     ;;
   gemma3-4b-fp16)
     MODEL_ID="google/gemma-3-4b-it"
     DEVICE="cuda"
     DTYPE="float16"
-    MAX_NEW_TOKENS="${LOCAL_HF_MAX_NEW_TOKENS:-320}"
+    DEVICE_MAP="auto"
+    MAX_NEW_TOKENS="${LOCAL_HF_MAX_NEW_TOKENS:-288}"
+    MAX_INPUT_CHARS="${LOCAL_HF_MAX_INPUT_CHARS:-10000}"
     ;;
   qwen2.5-0.5b)
     MODEL_ID="Qwen/Qwen2.5-0.5B-Instruct"
     DEVICE="${LOCAL_HF_DEVICE:-auto}"
     DTYPE="${LOCAL_HF_DTYPE:-auto}"
+    DEVICE_MAP="${LOCAL_HF_DEVICE_MAP:-none}"
     MAX_NEW_TOKENS="${LOCAL_HF_MAX_NEW_TOKENS:-256}"
+    MAX_INPUT_CHARS="${LOCAL_HF_MAX_INPUT_CHARS:-8000}"
     ;;
   *)
     echo "Unsupported preset: ${MODEL_PRESET}" >&2
@@ -83,7 +89,11 @@ export EXPERT_EXECUTION_MODE=slm
 export LOCAL_HF_MODEL_ID=${MODEL_ID}
 export LOCAL_HF_DEVICE=${DEVICE}
 export LOCAL_HF_DTYPE=${DTYPE}
+export LOCAL_HF_DEVICE_MAP=${DEVICE_MAP}
 export LOCAL_HF_MAX_NEW_TOKENS=${MAX_NEW_TOKENS}
+export LOCAL_HF_MAX_INPUT_CHARS=${MAX_INPUT_CHARS}
+export LOCAL_HF_TEMPERATURE=${LOCAL_HF_TEMPERATURE:-0.0}
+export LOCAL_HF_TOP_P=${LOCAL_HF_TOP_P:-1.0}
 EOF
 
 set -a
