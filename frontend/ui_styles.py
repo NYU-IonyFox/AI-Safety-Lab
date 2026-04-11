@@ -18,10 +18,12 @@ def inject_styles() -> None:
     st.markdown(
         """
         <style>
+        /* ── Base ───────────────────────────────────────────── */
         .stApp {
             background:
-                radial-gradient(circle at top right, rgba(241, 90, 36, 0.08), transparent 30%),
-                linear-gradient(180deg, #f5f1e8 0%, #f2efe8 100%);
+                radial-gradient(ellipse at top right, rgba(241, 90, 36, 0.09), transparent 40%),
+                radial-gradient(ellipse at bottom left, rgba(37, 99, 235, 0.04), transparent 40%),
+                linear-gradient(180deg, #f5f1e8 0%, #f0ece2 100%);
             color: #1e293b;
         }
 
@@ -31,10 +33,11 @@ def inject_styles() -> None:
 
         .block-container {
             max-width: 1180px;
-            padding-top: 1.4rem;
-            padding-bottom: 2rem;
+            padding-top: 1.5rem;
+            padding-bottom: 3rem;
         }
 
+        /* ── Shared card shell ──────────────────────────────── */
         .hero-card,
         .section-card,
         .sidebar-card,
@@ -42,15 +45,24 @@ def inject_styles() -> None:
         .module-card,
         .metric-card,
         .trace-card {
-            background: rgba(255, 252, 247, 0.9);
-            border: 1px solid rgba(148, 163, 184, 0.25);
-            border-radius: 22px;
-            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+            background: rgba(255, 253, 248, 0.96);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 20px;
+            box-shadow:
+                0 2px 8px rgba(15, 23, 42, 0.04),
+                0 8px 32px rgba(15, 23, 42, 0.05);
         }
 
+        /* ── Hero card ──────────────────────────────────────── */
         .hero-card {
-            padding: 1.4rem 1.5rem;
-            margin-bottom: 1rem;
+            padding: 1.7rem 1.9rem;
+            margin-bottom: 1.2rem;
+            border-left: 5px solid #f15a24;
+            background: linear-gradient(
+                135deg,
+                rgba(255, 253, 248, 0.98) 0%,
+                rgba(255, 247, 237, 0.98) 100%
+            );
         }
 
         .section-card,
@@ -58,204 +70,257 @@ def inject_styles() -> None:
         .step-card,
         .module-card,
         .trace-card {
-            padding: 1.1rem 1.2rem;
+            padding: 1.2rem 1.4rem;
             margin-bottom: 1rem;
         }
 
+        /* ── Hero typography ────────────────────────────────── */
         .hero-eyebrow {
-            color: #b45309;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #f15a24;
             text-transform: uppercase;
-            letter-spacing: 0.12em;
-            font-size: 0.78rem;
+            letter-spacing: 0.14em;
+            font-size: 0.7rem;
             font-weight: 700;
-            margin-bottom: 0.4rem;
+            margin-bottom: 0.55rem;
+        }
+
+        .hero-eyebrow::before {
+            content: '';
+            display: inline-block;
+            width: 18px;
+            height: 2px;
+            background: linear-gradient(90deg, #f15a24, #ea580c);
+            border-radius: 2px;
         }
 
         .hero-title {
-            font-size: 2.1rem;
-            line-height: 1.1;
+            font-size: 2.25rem;
+            line-height: 1.08;
             font-weight: 800;
             color: #0f172a;
-            margin-bottom: 0.35rem;
+            margin-bottom: 0.4rem;
+            letter-spacing: -0.025em;
         }
 
         .hero-copy {
             color: #475569;
             font-size: 1rem;
-            line-height: 1.6;
+            line-height: 1.65;
+            max-width: 60ch;
         }
 
         .body-copy {
             color: #475569;
-            line-height: 1.6;
-            margin-top: 0.35rem;
-        }
-
-        .hero-grid {
-            display: grid;
-            grid-template-columns: 1.35fr 0.9fr;
-            gap: 1rem;
-            align-items: start;
+            line-height: 1.65;
+            margin-top: 0.3rem;
         }
 
         .hero-pill-row {
-            margin-top: 0.8rem;
+            margin-top: 1.1rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
         }
 
         .hero-list {
             margin: 0.7rem 0 0 0;
             padding-left: 1.15rem;
             color: #334155;
-            line-height: 1.6;
+            line-height: 1.65;
         }
 
+        /* ── Metric cards ───────────────────────────────────── */
         .metric-card {
-            padding: 1.15rem 1.2rem;
+            padding: 1.3rem 1.35rem;
             min-height: 152px;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            border-left: 8px solid transparent;
+            border-left: 6px solid transparent;
+            transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-3px);
+            box-shadow:
+                0 6px 20px rgba(15, 23, 42, 0.08),
+                0 16px 40px rgba(15, 23, 42, 0.07);
         }
 
         .metric-label {
             color: #64748b;
-            font-size: 0.86rem;
+            font-size: 0.75rem;
             text-transform: uppercase;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.1em;
             font-weight: 700;
-            margin-bottom: 0.55rem;
+            margin-bottom: 0.6rem;
         }
 
         .metric-value {
-            font-size: 1.7rem;
-            line-height: 1.15;
+            font-size: 1.9rem;
+            line-height: 1.1;
             font-weight: 800;
             color: #0f172a;
+            letter-spacing: -0.025em;
         }
 
         .metric-copy {
-            margin-top: 0.45rem;
-            font-size: 0.95rem;
-            color: #475569;
+            margin-top: 0.5rem;
+            font-size: 0.85rem;
+            color: #64748b;
             line-height: 1.45;
         }
 
-        .tone-red {
-            background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
-            border-left-color: #e11d48;
-        }
+        /* ── Tone variants ──────────────────────────────────── */
+        .tone-red    { background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); border-left-color: #e11d48; }
+        .tone-amber  { background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); border-left-color: #ea580c; }
+        .tone-yellow { background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border-left-color: #d97706; }
+        .tone-green  { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left-color: #16a34a; }
+        .tone-blue   { background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-left-color: #2563eb; }
 
-        .tone-amber {
-            background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
-            border-left-color: #ea580c;
-        }
+        /* ── Risk labels ────────────────────────────────────── */
+        .risk-high   { color: #be123c; font-weight: 700; }
+        .risk-medium { color: #b45309; font-weight: 700; }
+        .risk-low    { color: #15803d; font-weight: 700; }
 
-        .tone-yellow {
-            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-            border-left-color: #d97706;
-        }
-
-        .tone-green {
-            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-            border-left-color: #16a34a;
-        }
-
-        .tone-blue {
-            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-            border-left-color: #2563eb;
-        }
-
-        .risk-high {
-            color: #be123c;
-            font-weight: 700;
-        }
-
-        .risk-medium {
-            color: #b45309;
-            font-weight: 700;
-        }
-
-        .risk-low {
-            color: #15803d;
-            font-weight: 700;
-        }
-
-        .pill {
-            display: inline-block;
-            padding: 0.35rem 0.7rem;
+        /* ── Status badges ──────────────────────────────────── */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.28rem 0.7rem;
             border-radius: 999px;
-            background: #e2e8f0;
-            color: #334155;
-            font-size: 0.82rem;
+            font-size: 0.73rem;
             font-weight: 700;
-            margin-right: 0.35rem;
-            margin-bottom: 0.35rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
         }
 
-        .muted {
-            color: #64748b;
+        .badge-reject  { background: #fff1f2; color: #be123c; border: 1.5px solid #fecdd3; }
+        .badge-review  { background: #fffbeb; color: #92400e; border: 1.5px solid #fde68a; }
+        .badge-approve { background: #f0fdf4; color: #166534; border: 1.5px solid #bbf7d0; }
+        .badge-info    { background: #eff6ff; color: #1e40af; border: 1.5px solid #bfdbfe; }
+        .badge-neutral { background: #f8fafc; color: #475569; border: 1.5px solid #e2e8f0; }
+
+        /* ── Pills ──────────────────────────────────────────── */
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.3rem 0.75rem;
+            border-radius: 999px;
+            background: rgba(241, 90, 36, 0.08);
+            color: #c2410c;
+            font-size: 0.78rem;
+            font-weight: 700;
+            border: 1px solid rgba(241, 90, 36, 0.16);
         }
 
+        .pill-neutral {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+        }
+
+        .pill-green {
+            background: rgba(22, 163, 74, 0.07);
+            color: #166534;
+            border: 1px solid rgba(22, 163, 74, 0.18);
+        }
+
+        .pill-blue {
+            background: rgba(37, 99, 235, 0.07);
+            color: #1d4ed8;
+            border: 1px solid rgba(37, 99, 235, 0.18);
+        }
+
+        .muted { color: #64748b; }
+
+        /* ── Sidebar ────────────────────────────────────────── */
         .sidebar-title {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 800;
             color: #0f172a;
         }
 
-        .card-flush {
-            margin-bottom: 0;
+        .sidebar-eyebrow {
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+            color: #f15a24;
+            margin-bottom: 0.4rem;
         }
 
-        .workflow-highlight {
-            margin-top: 0.45rem;
-            font-weight: 700;
-            color: #0f172a;
-        }
+        /* ── Card titles ────────────────────────────────────── */
+        .card-flush { margin-bottom: 0; }
 
         .card-title {
             margin-top: 0;
-            margin-bottom: 0.45rem;
+            margin-bottom: 0.5rem;
             color: #0f172a;
             font-size: 1.05rem;
             font-weight: 800;
+            letter-spacing: -0.015em;
         }
 
         .field-label {
-            color: #0f172a;
-            font-size: 0.78rem;
+            color: #374151;
+            font-size: 0.72rem;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.06em;
-            margin: 0.15rem 0 0.35rem 0;
+            letter-spacing: 0.08em;
+            margin: 0.2rem 0 0.35rem 0;
         }
 
         .field-help {
             color: #64748b;
-            font-size: 0.95rem;
+            font-size: 0.88rem;
             line-height: 1.55;
-            margin: 0.25rem 0 0.95rem 0;
+            margin: 0.2rem 0 0.85rem 0;
         }
 
-        .trace-card pre {
-            white-space: pre-wrap;
+        /* ── Code / trace ───────────────────────────────────── */
+        .trace-card pre { white-space: pre-wrap; }
+
+        /* ── Style st.container(border=True) like custom cards */
+        [data-testid="stVerticalBlockBorderWrapper"] {
+            background: rgba(255, 253, 248, 0.96) !important;
+            border: 1px solid rgba(148, 163, 184, 0.18) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04), 0 8px 32px rgba(15, 23, 42, 0.05) !important;
+            padding: 1.1rem 1.3rem !important;
+            margin-bottom: 1rem !important;
         }
 
+        [data-testid="stVerticalBlockBorderWrapper"] > div {
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }
+
+        /* ── Auto-card via markdown sentinel ────────────────── */
         div[data-testid="stLayoutWrapper"] > div[data-testid="stVerticalBlock"]:has(> div[data-testid="stElementContainer"] [data-testid="stMarkdownContainer"] > .card-title),
         div[data-testid="stLayoutWrapper"] > div[data-testid="stVerticalBlock"]:has(> div[data-testid="stElementContainer"] [data-testid="stMarkdownContainer"] > .hero-eyebrow) {
-            background: rgba(255, 252, 247, 0.9);
-            border: 1px solid rgba(148, 163, 184, 0.25);
-            border-radius: 22px;
-            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
-            padding: 1.1rem 1.2rem;
+            background: rgba(255, 253, 248, 0.96);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: 20px;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04), 0 8px 32px rgba(15, 23, 42, 0.05);
+            padding: 1.2rem 1.4rem;
             margin-bottom: 1rem;
         }
 
+        /* ── Radio / expander text ──────────────────────────── */
         .stRadio [data-baseweb="radio"] [data-testid="stMarkdownContainer"] p,
         .stExpander summary [data-testid="stMarkdownContainer"] p {
             color: #0f172a !important;
         }
 
+        /* ── Text inputs ────────────────────────────────────── */
         .stTextInput input,
         .stTextArea textarea,
         section[data-testid="stSidebar"] .stTextInput input,
@@ -268,86 +333,85 @@ def inject_styles() -> None:
         .stTextArea textarea::placeholder,
         section[data-testid="stSidebar"] .stTextInput input::placeholder,
         section[data-testid="stSidebar"] .stTextArea textarea::placeholder {
-            color: rgba(255, 255, 255, 0.62) !important;
-            -webkit-text-fill-color: rgba(255, 255, 255, 0.62) !important;
+            color: rgba(255, 255, 255, 0.5) !important;
+            -webkit-text-fill-color: rgba(255, 255, 255, 0.5) !important;
             opacity: 1;
         }
 
+        /* ── Buttons ────────────────────────────────────────── */
         .stButton > button {
-            background: linear-gradient(135deg, #f15a24 0%, #ea580c 100%);
-            color: white;
+            background: linear-gradient(135deg, #f15a24 0%, #dc4b10 100%);
+            color: white !important;
             border-radius: 12px;
             border: none;
-            padding: 0.75rem 1rem;
+            padding: 0.72rem 1.1rem;
             font-weight: 700;
+            font-size: 0.88rem;
+            letter-spacing: 0.015em;
+            box-shadow: 0 2px 6px rgba(241, 90, 36, 0.3), 0 1px 2px rgba(241, 90, 36, 0.2);
+            transition: filter 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
         }
 
         .stButton > button:hover {
-            color: white;
+            color: white !important;
+            filter: brightness(1.07);
+            box-shadow: 0 4px 14px rgba(241, 90, 36, 0.38), 0 2px 4px rgba(241, 90, 36, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .stButton > button:active {
+            transform: translateY(0);
             filter: brightness(0.97);
         }
 
-        .dashboard-stack {
-            display: grid;
-            gap: 1rem;
-        }
+        /* ── Layout helpers ─────────────────────────────────── */
+        .dashboard-stack { display: grid; gap: 1rem; }
 
         .pill-row {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.35rem;
-            margin-top: 0.8rem;
+            gap: 0.45rem;
+            margin-top: 0.9rem;
         }
 
         .action-note {
             color: #475569;
-            font-size: 0.95rem;
-            line-height: 1.45;
+            font-size: 0.88rem;
+            line-height: 1.5;
         }
 
-        .empty-state {
-            text-align: center;
-        }
+        .empty-state    { text-align: center; padding: 2rem; }
+        .empty-title    { font-size: 1.3rem; font-weight: 800; color: #0f172a; margin-bottom: 0.4rem; }
+        .empty-copy     { color: #64748b; line-height: 1.65; margin-bottom: 1rem; }
 
-        .empty-title {
-            font-size: 1.25rem;
-            font-weight: 800;
-            color: #0f172a;
-            margin-bottom: 0.35rem;
-        }
-
-        .empty-copy {
-            color: #475569;
-            line-height: 1.6;
-            margin-bottom: 0.9rem;
-        }
-
+        /* ── KV grid ────────────────────────────────────────── */
         .kv-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 0.7rem;
+            gap: 0.65rem;
         }
 
         .kv-item {
-            background: #fffaf4;
-            border: 1px solid rgba(148, 163, 184, 0.22);
-            border-radius: 18px;
-            padding: 0.85rem 0.9rem;
+            background: rgba(241, 90, 36, 0.04);
+            border: 1px solid rgba(241, 90, 36, 0.1);
+            border-radius: 14px;
+            padding: 0.85rem 0.95rem;
         }
 
         .kv-label {
-            font-size: 0.78rem;
+            font-size: 0.7rem;
             font-weight: 700;
             color: #64748b;
             text-transform: uppercase;
-            letter-spacing: 0.04em;
-            margin-bottom: 0.25rem;
+            letter-spacing: 0.07em;
+            margin-bottom: 0.3rem;
         }
 
         .kv-value {
             font-size: 0.95rem;
             color: #0f172a;
-            line-height: 1.45;
+            line-height: 1.4;
+            font-weight: 600;
         }
 
         .split-grid {
@@ -356,16 +420,71 @@ def inject_styles() -> None:
             gap: 1rem;
         }
 
-        @media (max-width: 900px) {
-            .hero-grid,
-            .kv-grid,
-            .split-grid {
-                grid-template-columns: 1fr;
-            }
+        .workflow-highlight {
+            margin-top: 0.45rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
 
-            .hero-title {
-                font-size: 1.7rem;
-            }
+        /* ── Step numbers ───────────────────────────────────── */
+        .step-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin-bottom: 0.7rem;
+        }
+
+        .step-num {
+            flex-shrink: 0;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f15a24, #dc4b10);
+            color: white;
+            font-size: 0.7rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 0.08rem;
+            box-shadow: 0 2px 6px rgba(241, 90, 36, 0.32);
+        }
+
+        .step-body { flex: 1; }
+        .step-title { font-weight: 700; color: #0f172a; font-size: 0.9rem; line-height: 1.3; }
+        .step-copy  { color: #64748b; font-size: 0.83rem; line-height: 1.45; margin-top: 0.15rem; }
+
+        /* ── Divider ────────────────────────────────────────── */
+        .section-divider {
+            border: none;
+            border-top: 1px solid rgba(148, 163, 184, 0.18);
+            margin: 0.75rem 0;
+        }
+
+        /* ── Expert module cards ────────────────────────────── */
+        .module-card {
+            border-top: 3px solid #f15a24;
+        }
+
+        /* ── Download button ────────────────────────────────── */
+        .stDownloadButton > button {
+            background: linear-gradient(135deg, #f15a24 0%, #dc4b10 100%) !important;
+            color: white !important;
+            border-radius: 12px !important;
+            border: none !important;
+            font-weight: 700 !important;
+            box-shadow: 0 2px 6px rgba(241, 90, 36, 0.28) !important;
+        }
+
+        .stDownloadButton > button:hover {
+            filter: brightness(1.07) !important;
+            transform: translateY(-1px) !important;
+        }
+
+        /* ── Responsive ─────────────────────────────────────── */
+        @media (max-width: 900px) {
+            .kv-grid, .split-grid { grid-template-columns: 1fr; }
+            .hero-title { font-size: 1.75rem; }
         }
         </style>
         """,

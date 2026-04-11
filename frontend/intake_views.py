@@ -6,7 +6,7 @@ import httpx
 import streamlit as st
 
 
-DEFAULT_API_BASE = "http://127.0.0.1:8080"
+DEFAULT_API_BASE = "http://127.0.0.1:8081"
 DEFAULT_GITHUB_TARGET = ""
 DEFAULT_LOCAL_TARGET = ""
 DEFAULT_DESCRIPTION = "Repository submission for AI safety review."
@@ -102,16 +102,19 @@ def render_sidebar(app_title: str, app_subtitle: str) -> None:
     with st.sidebar:
         st.markdown(
             f"""
-            <div class="sidebar-card">
-                <div class="hero-eyebrow">Stakeholder intake</div>
+            <div class="sidebar-card" style="border-left:4px solid #f15a24;">
+                <div class="sidebar-eyebrow">&#128737; Stakeholder Intake</div>
                 <div class="sidebar-title">{app_title}</div>
-                <div class="body-copy">{app_subtitle}</div>
+                <div class="body-copy" style="margin-top:0.3rem;font-size:0.85rem;">{app_subtitle}</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-        st.markdown("**Navigation**")
+        st.markdown(
+            '<div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#64748b;margin:0.6rem 0 0.35rem 0;">Navigation</div>',
+            unsafe_allow_html=True,
+        )
         nav_left, nav_right = st.columns(2)
         with nav_left:
             if st.button("Inputs", use_container_width=True):
@@ -123,7 +126,10 @@ def render_sidebar(app_title: str, app_subtitle: str) -> None:
                 st.session_state.current_page = "result"
                 st.rerun()
 
-        st.markdown("**Advanced settings**")
+        st.markdown(
+            '<div style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#64748b;margin:0.6rem 0 0.35rem 0;">Advanced settings</div>',
+            unsafe_allow_html=True,
+        )
         st.text_input(
             "Backend API base",
             value=st.session_state.get("api_base_input", DEFAULT_API_BASE),
@@ -166,15 +172,15 @@ def _render_hero(app_title: str, app_subtitle: str) -> None:
     st.markdown(
         f"""
         <div class="hero-card">
-            <div class="hero-eyebrow">Review intake</div>
-            <div class="hero-title">{app_title}</div>
+            <div class="hero-eyebrow">Review Intake</div>
+            <div class="hero-title">&#128737;&nbsp; {app_title}</div>
             <div class="hero-copy">{app_subtitle}</div>
             <div class="hero-pill-row">
-                <span class="pill">Repository-only</span>
-                <span class="pill">Behavior-only</span>
-                <span class="pill">Hybrid</span>
-                <span class="pill">three experts + council</span>
-                <span class="pill">stakeholder-ready report</span>
+                <span class="pill">&#128196;&nbsp; Repository-only</span>
+                <span class="pill">&#128172;&nbsp; Behavior-only</span>
+                <span class="pill">&#9889;&nbsp; Hybrid</span>
+                <span class="pill pill-neutral">3 experts + council</span>
+                <span class="pill pill-green">Stakeholder-ready report</span>
             </div>
         </div>
         """,
@@ -189,10 +195,28 @@ def _render_context_cards() -> None:
             """
             <div class="section-card">
                 <h3 class="card-title">Review Scope</h3>
-                <p class="body-copy">Submit a repository, a transcript, or both. The intake flow preserves the same evaluation logic while letting stakeholders choose Repository-only, Behavior-only, or Hybrid review.</p>
-                <p class="body-copy"><strong>Repository-only:</strong> public GitHub repository or local folder on the backend machine.</p>
-                <p class="body-copy"><strong>Behavior-only:</strong> transcript or conversation log mapped into the existing `conversation` payload.</p>
-                <p class="body-copy"><strong>Hybrid:</strong> repository evidence and transcript evidence in one council evaluation.</p>
+                <p class="body-copy" style="margin-bottom:0.8rem;">Submit a repository, a transcript, or both. Three expert modules then evaluate in parallel.</p>
+                <div class="step-row">
+                    <div class="step-num" style="background:linear-gradient(135deg,#7c3aed,#6d28d9);font-size:0.9rem;">&#128196;</div>
+                    <div class="step-body">
+                        <div class="step-title">Repository-only</div>
+                        <div class="step-copy">Public GitHub URL or local folder on the backend machine.</div>
+                    </div>
+                </div>
+                <div class="step-row">
+                    <div class="step-num" style="background:linear-gradient(135deg,#0891b2,#0e7490);font-size:0.9rem;">&#128172;</div>
+                    <div class="step-body">
+                        <div class="step-title">Behavior-only</div>
+                        <div class="step-copy">Conversation transcript or interaction log mapped to the evaluation pipeline.</div>
+                    </div>
+                </div>
+                <div class="step-row" style="margin-bottom:0;">
+                    <div class="step-num" style="background:linear-gradient(135deg,#f15a24,#dc4b10);font-size:0.9rem;">&#9889;</div>
+                    <div class="step-body">
+                        <div class="step-title">Hybrid</div>
+                        <div class="step-copy">Repository evidence + transcript evidence in one unified council evaluation.</div>
+                    </div>
+                </div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -201,12 +225,35 @@ def _render_context_cards() -> None:
         st.markdown(
             """
             <div class="section-card">
-                <h3 class="card-title">Workflow</h3>
-                <p class="body-copy">Choose the review mode, fill in the relevant submission details, and run the evaluation. The result page then shows expert modules, council synthesis, artifacts, and raw API output.</p>
-                <p class="body-copy"><strong>Suggested workflow:</strong></p>
-                <p class="body-copy">1. Choose Repository-only, Behavior-only, or Hybrid.</p>
-                <p class="body-copy">2. Add a repository, a transcript, or both.</p>
-                <p class="body-copy">3. Review the expert findings, arbitration rule, and stakeholder report.</p>
+                <h3 class="card-title">How it works</h3>
+                <div class="step-row">
+                    <div class="step-num">1</div>
+                    <div class="step-body">
+                        <div class="step-title">Choose a review mode</div>
+                        <div class="step-copy">Repository-only, Behavior-only, or Hybrid.</div>
+                    </div>
+                </div>
+                <div class="step-row">
+                    <div class="step-num">2</div>
+                    <div class="step-body">
+                        <div class="step-title">Add evidence</div>
+                        <div class="step-copy">Paste a GitHub URL, a local path, a transcript, or both.</div>
+                    </div>
+                </div>
+                <div class="step-row">
+                    <div class="step-num">3</div>
+                    <div class="step-body">
+                        <div class="step-title">Run the council</div>
+                        <div class="step-copy">Three expert modules evaluate in parallel, then synthesize a final verdict.</div>
+                    </div>
+                </div>
+                <div class="step-row" style="margin-bottom:0;">
+                    <div class="step-num">4</div>
+                    <div class="step-body">
+                        <div class="step-title">Review findings</div>
+                        <div class="step-copy">Expert modules, arbitration rule, artifacts, and stakeholder report.</div>
+                    </div>
+                </div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -347,13 +394,34 @@ def render_input_page(
     with right:
         with st.container(border=True):
             _render_card_header(
-                "Result page structure",
-                "The result view opens as a report-style dashboard with the same section order used by the actual evaluation output.",
+                "What you get",
+                "The result view is a report-style dashboard covering all evaluation layers.",
             )
-            st.markdown("- Submission summary and evidence snapshot")
-            st.markdown("- Repository evidence and behavior evidence when available")
-            st.markdown("- Expert modules followed by council synthesis")
-            st.markdown("- Artifacts and raw API response for traceability")
+            st.markdown(
+                """
+                <div class="step-row">
+                    <div class="step-num" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);">&#10003;</div>
+                    <div class="step-body"><div class="step-title">Submission summary</div>
+                    <div class="step-copy">Workflow, target, evidence snapshot.</div></div>
+                </div>
+                <div class="step-row">
+                    <div class="step-num" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);">&#10003;</div>
+                    <div class="step-body"><div class="step-title">Expert modules × 3</div>
+                    <div class="step-copy">Risk, Red-team, Policy — each with findings and confidence.</div></div>
+                </div>
+                <div class="step-row">
+                    <div class="step-num" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);">&#10003;</div>
+                    <div class="step-body"><div class="step-title">Council synthesis</div>
+                    <div class="step-copy">Arbitration rule, rationale, recommended actions.</div></div>
+                </div>
+                <div class="step-row" style="margin-bottom:0;">
+                    <div class="step-num" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);">&#10003;</div>
+                    <div class="step-body"><div class="step-title">Artifacts & raw output</div>
+                    <div class="step-copy">Downloadable report and archive JSON for audit trail.</div></div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
     target_name = st.session_state.get("target_name_input", "Submitted Repository")
     description = st.session_state.get("description_input", DEFAULT_DESCRIPTION)
@@ -364,9 +432,9 @@ def render_input_page(
     with st.container(border=True):
         _render_card_header(
             "Run evaluation",
-            "Submit the intake package to the backend and open the council dashboard when the evaluation completes.",
+            "Submit to the backend. The three-expert council evaluates in sequence, then the council synthesizes a final decision.",
         )
-        submitted = st.button("Run evaluation", use_container_width=True)
+        submitted = st.button("&#9658;  Run Evaluation", use_container_width=True)
 
     if submitted:
         if workflow_label in {"Repository-only", "Hybrid"} and source_type == "local_path" and not local_path.strip():

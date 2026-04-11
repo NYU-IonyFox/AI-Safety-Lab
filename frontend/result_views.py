@@ -5,6 +5,17 @@ from pathlib import Path
 
 import streamlit as st
 
+
+def _escape(text: object) -> str:
+    value = "" if text is None else str(text)
+    return (
+        value.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&#39;")
+    )
+
 try:
     import ui_styles
 except ImportError:  # pragma: no cover - fallback keeps the module usable before the helper lands.
@@ -188,32 +199,45 @@ def _workflow_scope_summary(result: dict) -> list[str]:
     return lines
 
 
+def _decision_badge_class(decision: str) -> str:
+    value = str(decision).strip().upper()
+    if value == "REJECT":
+        return "badge-reject"
+    if value == "REVIEW":
+        return "badge-review"
+    if value == "APPROVE":
+        return "badge-approve"
+    return "badge-info"
+
+
 def _render_chips(result: dict) -> None:
     evaluation_id = _display_text(result.get("evaluation_id"), "Pending")
     workflow = _display_workflow(result)
     council = result.get("council_result") or {}
+    decision = _display_text(result.get("decision"), "REVIEW")
     review_chip = "Human review required" if council.get("needs_human_review") else "Auto-approved path"
     archive_path = _display_text(result.get("archive_path"), "")
     report_path = _display_text(result.get("report_path"), "")
+    badge_class = _decision_badge_class(decision)
 
-    chips = [
-        f"Workflow: {workflow}",
-        f"Evaluation: {evaluation_id}",
-        f"{review_chip}",
-    ]
+    artifact_pills = ""
     if archive_path:
-        chips.append("Archive saved")
+        artifact_pills += '<span class="pill pill-neutral">&#128190;&nbsp; Archive saved</span>'
     if report_path:
-        chips.append("Report saved")
+        artifact_pills += '<span class="pill pill-green">&#128196;&nbsp; Report saved</span>'
 
     st.markdown(
         f"""
         <div class="hero-card">
-            <div class="hero-eyebrow">Stakeholder dashboard</div>
-            <div class="hero-title">Evaluation result</div>
+            <div class="hero-eyebrow">Stakeholder Dashboard</div>
+            <div class="hero-title">&#128202;&nbsp; Evaluation Result</div>
             <div class="hero-copy">{APP_SUBTITLE}</div>
             <div class="pill-row">
-                {''.join(f'<span class="pill">{chip}</span>' for chip in chips)}
+                <span class="badge {badge_class}">{_escape(decision)}</span>
+                <span class="pill pill-neutral">&#9881;&nbsp; {_escape(workflow)}</span>
+                <span class="pill pill-neutral" style="font-family:monospace;font-size:0.72rem;">{_escape(evaluation_id[:16])}…</span>
+                {'<span class="pill pill-blue">&#128100;&nbsp; ' + review_chip + '</span>' if council.get("needs_human_review") else '<span class="pill pill-green">&#10003;&nbsp; ' + review_chip + '</span>'}
+                {artifact_pills}
             </div>
         </div>
         """,
@@ -305,50 +329,48 @@ def _render_overview(result: dict) -> None:
 
     left, right = st.columns([1.1, 0.9])
     with left:
-        st.markdown('<div class="section-card">', unsafe_allow_html=True)
-        _render_card_header("Submission summary", "High-level context for the submitted repository, transcript, or hybrid review.")
-        st.markdown(f"**Workflow:** {workflow}")
-        if repo:
-            st.markdown(f"**Target:** {_display_text(repo.get('target_name'), 'Unknown')}")
-            st.markdown(f"**Framework:** {_display_text(repo.get('framework'), 'Unknown')}")
-            st.markdown(f"**Source type:** {_display_text(repo.get('source_type', submission.get('source_type')), 'manual')}")
-            st.markdown(f"**Repository summary:** {_display_text(repo.get('summary'), 'No summary available.')}")
-        else:
-            st.markdown(f"**Target:** {_display_text(submission.get('target_name'), 'Transcript review')}")
-            st.markdown("**Framework:** Behavior-only transcript review")
-            st.markdown("**Source type:** manual / transcript")
-            st.markdown("**Repository summary:** No repository artifact was returned for this evaluation.")
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            _render_card_header("Submission summary", "High-level context for the submitted repository, transcript, or hybrid review.")
+            st.markdown(f"**Workflow:** {workflow}")
+            if repo:
+                st.markdown(f"**Target:** {_display_text(repo.get('target_name'), 'Unknown')}")
+                st.markdown(f"**Framework:** {_display_text(repo.get('framework'), 'Unknown')}")
+                st.markdown(f"**Source type:** {_display_text(repo.get('source_type', submission.get('source_type')), 'manual')}")
+                st.markdown(f"**Repository summary:** {_display_text(repo.get('summary'), 'No summary available.')}")
+            else:
+                st.markdown(f"**Target:** {_display_text(submission.get('target_name'), 'Transcript review')}")
+                st.markdown("**Framework:** Behavior-only transcript review")
+                st.markdown("**Source type:** manual / transcript")
+                st.markdown("**Repository summary:** No repository artifact was returned for this evaluation.")
 
     with right:
-        st.markdown('<div class="section-card">', unsafe_allow_html=True)
-        _render_card_header("Evidence snapshot", "Condensed signals and behavior markers surfaced before the detailed drill-down.")
-        if repo:
-            signals = _display_lines(repo.get("detected_signals"))
-            risks = _display_lines(repo.get("risk_notes"))
-            notable_files = _display_lines(repo.get("notable_files"))
-            _render_list_block("Detected signals", signals, limit=4)
-            _render_list_block("Risk notes", risks, limit=4)
-            _render_list_block("Notable files", notable_files, limit=4)
-        else:
-            _render_list_block(
-                "Transcript coverage",
-                [
-                    f"{source_turns} conversation turn(s) supplied in the payload.",
-                    "The council reviews behavior evidence directly from the transcript.",
-                ],
-            )
-        if behavior:
-            _render_list_block(
-                "Behavior summary",
-                [
-                    f"Detected languages: {', '.join(_display_lines(behavior.get('detected_languages'))) or 'None explicitly tagged'}.",
-                    f"Primary language: {_display_text(behavior.get('primary_language'), 'unknown')}.",
-                    f"Translation confidence: {float(behavior.get('translation_confidence', 1.0)):.2f}.",
-                    f"Uncertainty flag: {'Yes' if behavior.get('uncertainty_flag') else 'No'}.",
-                ],
-            )
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            _render_card_header("Evidence snapshot", "Condensed signals and behavior markers surfaced before the detailed drill-down.")
+            if repo:
+                signals = _display_lines(repo.get("detected_signals"))
+                risks = _display_lines(repo.get("risk_notes"))
+                notable_files = _display_lines(repo.get("notable_files"))
+                _render_list_block("Detected signals", signals, limit=4)
+                _render_list_block("Risk notes", risks, limit=4)
+                _render_list_block("Notable files", notable_files, limit=4)
+            else:
+                _render_list_block(
+                    "Transcript coverage",
+                    [
+                        f"{source_turns} conversation turn(s) supplied in the payload.",
+                        "The council reviews behavior evidence directly from the transcript.",
+                    ],
+                )
+            if behavior:
+                _render_list_block(
+                    "Behavior summary",
+                    [
+                        f"Detected languages: {', '.join(_display_lines(behavior.get('detected_languages'))) or 'None explicitly tagged'}.",
+                        f"Primary language: {_display_text(behavior.get('primary_language'), 'unknown')}.",
+                        f"Translation confidence: {float(behavior.get('translation_confidence', 1.0)):.2f}.",
+                        f"Uncertainty flag: {'Yes' if behavior.get('uncertainty_flag') else 'No'}.",
+                    ],
+                )
 
 
 def _render_evidence_sections(result: dict) -> None:
@@ -359,39 +381,37 @@ def _render_evidence_sections(result: dict) -> None:
 
     columns = st.columns(2)
     with columns[0]:
-        st.markdown('<div class="section-card">', unsafe_allow_html=True)
-        _render_card_header("Repository evidence", "Key repository-level signals feeding the council review.")
-        evidence_items = repo.get("evidence_items", []) if isinstance(repo, dict) else []
-        if evidence_items:
-            for item in evidence_items[:4]:
-                path = _display_text(item.get("path"), "unknown")
-                signal = _display_text(item.get("signal"), "Signal")
-                why = _display_text(item.get("why_it_matters"), "")
-                st.markdown(f"- `{path}`: **{signal}**. {why}")
-        else:
-            st.markdown("No repository evidence items were returned for this run.")
-        _render_list_block("LLM backends", _display_lines(repo.get("llm_backends")), limit=4)
-        _render_list_block("Upload surfaces", _display_lines(repo.get("upload_surfaces")), limit=4)
-        _render_list_block("Auth signals", _display_lines(repo.get("auth_signals")), limit=4)
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            _render_card_header("Repository evidence", "Key repository-level signals feeding the council review.")
+            evidence_items = repo.get("evidence_items", []) if isinstance(repo, dict) else []
+            if evidence_items:
+                for item in evidence_items[:4]:
+                    path = _display_text(item.get("path"), "unknown")
+                    signal = _display_text(item.get("signal"), "Signal")
+                    why = _display_text(item.get("why_it_matters"), "")
+                    st.markdown(f"- `{path}`: **{signal}**. {why}")
+            else:
+                st.markdown("No repository evidence items were returned for this run.")
+            _render_list_block("LLM backends", _display_lines(repo.get("llm_backends")), limit=4)
+            _render_list_block("Upload surfaces", _display_lines(repo.get("upload_surfaces")), limit=4)
+            _render_list_block("Auth signals", _display_lines(repo.get("auth_signals")), limit=4)
 
     with columns[1]:
-        st.markdown('<div class="section-card">', unsafe_allow_html=True)
-        _render_card_header("Behavior evidence", "Observed transcript and behavior markers attached to this evaluation.")
-        if source_turns:
-            st.markdown(f"Conversation input supplied {len(source_turns)} turn(s).")
-            for turn in source_turns[:4]:
-                role = _display_text(turn.get("role"), "user").capitalize()
-                content = _display_text(turn.get("content"), "").strip()
-                if content:
-                    st.markdown(f"- **{role}**: {content[:220]}")
-        else:
-            st.markdown("No conversation turns were returned in the payload.")
-        if behavior:
-            _render_list_block("Content markers", _display_lines(behavior.get("content_markers")), limit=4)
-            _render_list_block("Key signals", _display_lines(behavior.get("key_signals")), limit=4)
-            _render_list_block("Risk notes", _display_lines(behavior.get("risk_notes")), limit=4)
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            _render_card_header("Behavior evidence", "Observed transcript and behavior markers attached to this evaluation.")
+            if source_turns:
+                st.markdown(f"Conversation input supplied {len(source_turns)} turn(s).")
+                for turn in source_turns[:4]:
+                    role = _display_text(turn.get("role"), "user").capitalize()
+                    content = _display_text(turn.get("content"), "").strip()
+                    if content:
+                        st.markdown(f"- **{role}**: {content[:220]}")
+            else:
+                st.markdown("No conversation turns were returned in the payload.")
+            if behavior:
+                _render_list_block("Content markers", _display_lines(behavior.get("content_markers")), limit=4)
+                _render_list_block("Key signals", _display_lines(behavior.get("key_signals")), limit=4)
+                _render_list_block("Risk notes", _display_lines(behavior.get("risk_notes")), limit=4)
 
 
 def _stakeholder_takeaways(expert: dict, result: dict, workflow: str) -> list[str]:
@@ -515,57 +535,63 @@ def _expert_evidence_lines(expert: dict, workflow: str, result: dict) -> list[st
     return []
 
 
+def _expert_icon(expert_name: str) -> str:
+    icons = {
+        "team1_policy_expert": "&#9878;",
+        "team2_redteam_expert": "&#128737;",
+        "team3_risk_expert": "&#128272;",
+    }
+    return icons.get(expert_name, "&#128301;")
+
+
 def _expert_summary_card(expert: dict, result: dict, workflow: str) -> None:
     risk_tier = _display_text(expert.get("risk_tier"), "UNKNOWN")
     risk_class = ui_styles.risk_class(risk_tier)
+    expert_name = _display_text(expert.get("expert_name"), "expert")
     status = _display_text(expert.get("evaluation_status"), "unknown")
     confidence = float(expert.get("confidence", 0.0))
+    icon = _expert_icon(expert_name)
 
-    st.markdown('<div class="module-card">', unsafe_allow_html=True)
-    _render_card_header(_expert_title(_display_text(expert.get("expert_name"), "expert")))
-    st.markdown(f"**Status:** `{status}`")
-    st.markdown(f"**Risk:** <span class=\"{risk_class}\">{risk_tier}</span>", unsafe_allow_html=True)
-    st.markdown(f"**Confidence:** {confidence:.2f}")
-    st.markdown(f"**Bottom line:** {_display_text(expert.get('summary'), 'No summary available.')}")
-    st.markdown("**What this means**")
-    for line in _stakeholder_takeaways(expert, result, workflow)[:3]:
-        st.markdown(f"- {line}")
-    evidence_lines = _expert_evidence_lines(expert, workflow, result)
-    if evidence_lines:
-        st.markdown("**Evidence you can trace**")
-        for item in evidence_lines:
-            st.markdown(f"- {item}")
-    with st.expander("Technical findings and scores", expanded=False):
-        findings = _display_lines(expert.get("findings"))
-        if findings:
-            st.markdown("**Detailed findings**")
-            for finding in findings[:6]:
-                st.markdown(f"- {finding}")
-        detail_payload = expert.get("detail_payload")
-        if isinstance(detail_payload, dict):
-            st.markdown("**Detail payload hints**")
-            st.markdown(f"- Type: `{detail_payload.get('detail_type', 'generic')}`")
-            st.markdown(f"- Source: `{detail_payload.get('source', 'rules')}`")
-            notes = _display_lines(detail_payload.get("notes"))
-            if notes:
-                for note in notes[:4]:
-                    st.markdown(f"- {note}")
-        st.markdown(f"**Risk score:** {float(expert.get('risk_score', 0.0)):.2f}")
-        st.markdown(f"**Tone:** {ui_styles.tone_for_risk(risk_tier)}")
-        st.markdown(f"**Tone copy:** {_risk_copy(risk_tier)}")
-        metadata = expert.get("metadata")
-        if isinstance(metadata, dict):
-            st.markdown("**Metadata**")
-            for key in ("team", "execution_mode", "runner_mode", "configured_backend", "actual_backend", "taxonomy_label"):
-                if metadata.get(key):
-                    st.markdown(f"- **{key.replace('_', ' ').title()}:** {metadata.get(key)}")
-    st.markdown("</div>", unsafe_allow_html=True)
+    with st.container(border=True):
+        st.markdown(f'<h3 class="card-title">{icon}&nbsp; {_expert_title(expert_name)}</h3>', unsafe_allow_html=True)
+        st.markdown(f"**Status:** `{status}`")
+        st.markdown(f"**Risk:** <span class=\"{risk_class}\">{risk_tier}</span>", unsafe_allow_html=True)
+        st.markdown(f"**Confidence:** {confidence:.2f}")
+        st.markdown(f"**Bottom line:** {_display_text(expert.get('summary'), 'No summary available.')}")
+        st.markdown("**What this means**")
+        for line in _stakeholder_takeaways(expert, result, workflow)[:3]:
+            st.markdown(f"- {line}")
+        evidence_lines = _expert_evidence_lines(expert, workflow, result)
+        if evidence_lines:
+            st.markdown("**Evidence you can trace**")
+            for item in evidence_lines:
+                st.markdown(f"- {item}")
+        with st.expander("Technical findings and scores", expanded=False):
+            findings = _display_lines(expert.get("findings"))
+            if findings:
+                st.markdown("**Detailed findings**")
+                for finding in findings[:6]:
+                    st.markdown(f"- {finding}")
+            detail_payload = expert.get("detail_payload")
+            if isinstance(detail_payload, dict):
+                st.markdown("**Detail payload hints**")
+                st.markdown(f"- Type: `{detail_payload.get('detail_type', 'generic')}`")
+                st.markdown(f"- Source: `{detail_payload.get('source', 'rules')}`")
+                notes = _display_lines(detail_payload.get("notes"))
+                if notes:
+                    for note in notes[:4]:
+                        st.markdown(f"- {note}")
+            st.markdown(f"**Risk score:** {float(expert.get('risk_score', 0.0)):.2f}")
+            metadata = expert.get("metadata")
+            if isinstance(metadata, dict):
+                for key in ("team", "execution_mode", "runner_mode", "configured_backend", "actual_backend", "taxonomy_label"):
+                    if metadata.get(key):
+                        st.markdown(f"- **{key.replace('_', ' ').title()}:** {metadata.get(key)}")
 
 
 def _render_expert_section(result: dict) -> None:
     experts = result.get("experts") or []
     workflow = _display_workflow(result)
-    st.markdown('<div class="section-card">', unsafe_allow_html=True)
     _render_card_header("Expert modules", "Three perspectives summarized in parallel before council arbitration.")
     if not experts:
         st.markdown("No expert modules were returned for this evaluation.")
@@ -575,7 +601,6 @@ def _render_expert_section(result: dict) -> None:
             with columns[idx]:
                 if isinstance(expert, dict):
                     _expert_summary_card(expert, result, workflow)
-    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def _render_council_section(result: dict) -> None:
@@ -588,71 +613,70 @@ def _render_council_section(result: dict) -> None:
     channel_scores = council.get("channel_scores") or {}
     disagreement_index = float(council.get("disagreement_index", 0.0))
 
-    st.markdown('<div class="section-card">', unsafe_allow_html=True)
-    _render_card_header("Council synthesis", "Final arbitration output and the rationale that drove the disposition.")
-    metric_cols = st.columns(3)
-    with metric_cols[0]:
-        ui_styles.render_metric_card("Final Decision", decision, tone, copy)
-    with metric_cols[1]:
-        ui_styles.render_metric_card("Arbitration Rule", rule_name, "tone-blue", "Explicit council rule that drove the final verdict.")
-    with metric_cols[2]:
-        ui_styles.render_metric_card("Disagreement", f"{disagreement_index:.2f}", "tone-blue", "How far apart the experts were.")
+    with st.container(border=True):
+        _render_card_header("Council synthesis", "Final arbitration output and the rationale that drove the disposition.")
+        metric_cols = st.columns(3)
+        with metric_cols[0]:
+            ui_styles.render_metric_card("Final Decision", decision, tone, copy)
+        with metric_cols[1]:
+            ui_styles.render_metric_card("Arbitration Rule", rule_name, "tone-blue", "Explicit council rule that drove the final verdict.")
+        with metric_cols[2]:
+            ui_styles.render_metric_card("Disagreement", f"{disagreement_index:.2f}", "tone-blue", "How far apart the experts were.")
 
-    left, right = st.columns([1.1, 0.9])
-    with left:
-        st.markdown("**Rationale**")
-        st.markdown(_display_text(council.get("rationale"), "No rationale was returned."))
-        if council.get("consensus_summary"):
-            st.markdown("**Consensus summary**")
-            st.markdown(_display_text(council.get("consensus_summary"), ""))
-        if council.get("recommended_actions"):
-            st.markdown("**Recommended actions**")
-            for item in _display_lines(council.get("recommended_actions"))[:6]:
+        left, right = st.columns([1.1, 0.9])
+        with left:
+            st.markdown("**Rationale**")
+            st.markdown(_display_text(council.get("rationale"), "No rationale was returned."))
+            if council.get("consensus_summary"):
+                st.markdown("**Consensus summary**")
+                st.markdown(_display_text(council.get("consensus_summary"), ""))
+            if council.get("recommended_actions"):
+                st.markdown("**Recommended actions**")
+                for item in _display_lines(council.get("recommended_actions"))[:6]:
+                    st.markdown(f"- {item}")
+            st.markdown("**What happens next**")
+            for item in _governance_next_steps(result):
                 st.markdown(f"- {item}")
-        st.markdown("**What happens next**")
-        for item in _governance_next_steps(result):
-            st.markdown(f"- {item}")
-    with right:
-        st.markdown("**Council facts**")
-        st.markdown(f"- Council score: {float(council.get('council_score', 0.0)):.2f}")
-        st.markdown(f"- Score basis: {_display_text(council.get('score_basis'), 'expert_average')}")
-        st.markdown(f"- Triggered by: {triggered_by}")
-        st.markdown(f"- Human review: {'Yes' if council.get('needs_human_review') else 'No'}")
-        if channel_scores:
-            st.markdown(
-                f"- Channel scores: repository {float(channel_scores.get('repository_channel_score', 0.0)):.2f} | "
-                f"behavior {float(channel_scores.get('behavior_channel_score', 0.0)):.2f}"
-            )
-        summary_lines = _deliberation_summary_lines(council)
-        if summary_lines:
-            st.markdown("**How the experts challenged each other**")
-            for item in summary_lines:
-                st.markdown(f"- {item}")
+        with right:
+            st.markdown("**Council facts**")
+            st.markdown(f"- Council score: {float(council.get('council_score', 0.0)):.2f}")
+            st.markdown(f"- Score basis: {_display_text(council.get('score_basis'), 'expert_average')}")
+            st.markdown(f"- Triggered by: {triggered_by}")
+            st.markdown(f"- Human review: {'Yes' if council.get('needs_human_review') else 'No'}")
+            if channel_scores:
+                st.markdown(
+                    f"- Channel scores: repository {float(channel_scores.get('repository_channel_score', 0.0)):.2f} | "
+                    f"behavior {float(channel_scores.get('behavior_channel_score', 0.0)):.2f}"
+                )
+            summary_lines = _deliberation_summary_lines(council)
+            if summary_lines:
+                st.markdown("**How the experts challenged each other**")
+                for item in summary_lines:
+                    st.markdown(f"- {item}")
 
-    with st.expander("Technical council trace", expanded=False):
-        if council.get("cross_expert_critique"):
-            st.markdown("**Cross-expert critique**")
-            for item in _display_lines(council.get("cross_expert_critique")):
-                st.markdown(f"- {item}")
-        if council.get("key_evidence"):
-            st.markdown("**Key evidence**")
-            for item in _display_lines(council.get("key_evidence")):
-                st.markdown(f"- {item}")
-        if council.get("ignored_signals"):
-            st.markdown("**Signals noted but not decisive**")
-            for item in _display_lines(council.get("ignored_signals")):
-                st.markdown(f"- {item}")
-        if council.get("deliberation_trace"):
-            st.markdown("**Full deliberation trace**")
-            for item in council.get("deliberation_trace", []):
-                if not isinstance(item, dict):
-                    continue
-                phase = _display_text(item.get("phase"), "").upper()
-                author = _expert_title(_display_text(item.get("author_expert"), "expert"))
-                target = _display_text(item.get("target_expert"), "")
-                target_copy = f" -> {_expert_title(target)}" if target else ""
-                st.markdown(f"- **{phase}** `{author}{target_copy}`: {_display_text(item.get('summary'), '')}")
-    st.markdown("</div>", unsafe_allow_html=True)
+        with st.expander("Technical council trace", expanded=False):
+            if council.get("cross_expert_critique"):
+                st.markdown("**Cross-expert critique**")
+                for item in _display_lines(council.get("cross_expert_critique")):
+                    st.markdown(f"- {item}")
+            if council.get("key_evidence"):
+                st.markdown("**Key evidence**")
+                for item in _display_lines(council.get("key_evidence")):
+                    st.markdown(f"- {item}")
+            if council.get("ignored_signals"):
+                st.markdown("**Signals noted but not decisive**")
+                for item in _display_lines(council.get("ignored_signals")):
+                    st.markdown(f"- {item}")
+            if council.get("deliberation_trace"):
+                st.markdown("**Full deliberation trace**")
+                for item in council.get("deliberation_trace", []):
+                    if not isinstance(item, dict):
+                        continue
+                    phase = _display_text(item.get("phase"), "").upper()
+                    author = _expert_title(_display_text(item.get("author_expert"), "expert"))
+                    target = _display_text(item.get("target_expert"), "")
+                    target_copy = f" -> {_expert_title(target)}" if target else ""
+                    st.markdown(f"- **{phase}** `{author}{target_copy}`: {_display_text(item.get('summary'), '')}")
 
 
 def _governance_next_steps(result: dict) -> list[str]:
@@ -753,47 +777,53 @@ def _render_artifacts(result: dict) -> None:
     report_path = _display_text(result.get("report_path"), "")
     archive_path = _display_text(result.get("archive_path"), "")
 
-    st.markdown('<div class="section-card">', unsafe_allow_html=True)
-    _render_card_header("Artifacts", "Downloadable outputs and saved paths for auditability and handoff.")
-    artifact_cols = st.columns(2)
-    with artifact_cols[0]:
-        if report_path and Path(report_path).exists():
-            st.download_button(
-                "Download markdown report",
-                data=Path(report_path).read_text(encoding="utf-8"),
-                file_name=Path(report_path).name,
-                mime="text/markdown",
-                use_container_width=True,
-            )
-        else:
-            st.markdown("Markdown report path not available or file missing.")
-    with artifact_cols[1]:
-        if archive_path and Path(archive_path).exists():
-            st.download_button(
-                "Download archive JSON",
-                data=Path(archive_path).read_text(encoding="utf-8"),
-                file_name=Path(archive_path).name,
-                mime="application/json",
-                use_container_width=True,
-            )
-        else:
-            st.markdown("Archive JSON path not available or file missing.")
+    with st.container(border=True):
+        _render_card_header("Artifacts", "Downloadable outputs and saved paths for auditability and handoff.")
+        artifact_cols = st.columns(2)
+        with artifact_cols[0]:
+            if report_path and Path(report_path).exists():
+                st.download_button(
+                    "Download markdown report",
+                    data=Path(report_path).read_text(encoding="utf-8"),
+                    file_name=Path(report_path).name,
+                    mime="text/markdown",
+                    use_container_width=True,
+                )
+            else:
+                st.markdown("Markdown report path not available or file missing.")
+        with artifact_cols[1]:
+            if archive_path and Path(archive_path).exists():
+                st.download_button(
+                    "Download archive JSON",
+                    data=Path(archive_path).read_text(encoding="utf-8"),
+                    file_name=Path(archive_path).name,
+                    mime="application/json",
+                    use_container_width=True,
+                )
+            else:
+                st.markdown("Archive JSON path not available or file missing.")
 
-    st.markdown('<div class="trace-card">', unsafe_allow_html=True)
-    st.markdown("**Saved artifact locations**")
-    st.markdown(f"- **Readable report:** `{report_path or 'Unavailable'}`")
-    st.markdown(f"- **Archive JSON:** `{archive_path or 'Unavailable'}`")
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown(
+            f"""
+            <div style="background:rgba(241,90,36,0.04);border:1px solid rgba(241,90,36,0.12);
+                        border-radius:12px;padding:0.75rem 0.9rem;margin-top:0.5rem;font-size:0.85rem;">
+                <div style="font-size:0.7rem;font-weight:700;text-transform:uppercase;
+                            letter-spacing:0.07em;color:#64748b;margin-bottom:0.35rem;">Saved artifact locations</div>
+                <div style="color:#0f172a;font-family:monospace;font-size:0.82rem;word-break:break-all;">
+                    <strong>Report:</strong> {_escape(report_path or 'Unavailable')}<br>
+                    <strong>Archive:</strong> {_escape(archive_path or 'Unavailable')}
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 def _render_raw_response(result: dict) -> None:
-    st.markdown('<div class="section-card">', unsafe_allow_html=True)
-    _render_card_header("Raw API response", "Full evaluation payload returned by the backend for traceability and debugging.")
-    st.markdown('<div class="trace-card">', unsafe_allow_html=True)
-    st.code(json.dumps(result, indent=2, ensure_ascii=False, default=str), language="json")
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
+    # Compact collapsible — collapsed by default so it doesn't dominate the page
+    with st.expander("Raw API response — full evaluation payload (traceability)", expanded=False):
+        st.caption("Full JSON returned by the backend. Expand to inspect or copy for debugging.")
+        st.code(json.dumps(result, indent=2, ensure_ascii=False, default=str), language="json")
 
 
 def render_result_page(result: dict | None) -> None:
