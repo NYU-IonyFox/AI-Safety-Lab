@@ -9,7 +9,7 @@ from ui_styles import inject_styles
 
 APP_TITLE = "AI Safety Lab"
 APP_SUBTITLE = "A stakeholder-facing AI safety evaluation workspace for Repository-only, Behavior-only, and Hybrid reviews."
-DEFAULT_API_BASE = "http://127.0.0.1:8081"
+DEFAULT_API_BASE = "http://127.0.0.1:8080"
 DEFAULT_GITHUB_TARGET = ""
 DEFAULT_LOCAL_TARGET = ""
 DEFAULT_DESCRIPTION = "Repository submission for AI safety review."

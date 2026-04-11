@@ -21,8 +21,7 @@ def inject_styles() -> None:
         /* ── Base ───────────────────────────────────────────── */
         .stApp {
             background:
-                radial-gradient(ellipse at top right, rgba(241, 90, 36, 0.09), transparent 40%),
-                radial-gradient(ellipse at bottom left, rgba(37, 99, 235, 0.04), transparent 40%),
+                radial-gradient(ellipse at top right, rgba(241, 90, 36, 0.08), transparent 38%),
                 linear-gradient(180deg, #f5f1e8 0%, #f0ece2 100%);
             color: #1e293b;
         }
@@ -33,8 +32,8 @@ def inject_styles() -> None:
 
         .block-container {
             max-width: 1180px;
-            padding-top: 1.5rem;
-            padding-bottom: 3rem;
+            padding-top: 1.4rem;
+            padding-bottom: 2rem;
         }
 
         /* ── Shared card shell ──────────────────────────────── */
@@ -44,25 +43,31 @@ def inject_styles() -> None:
         .step-card,
         .module-card,
         .metric-card,
-        .trace-card {
-            background: rgba(255, 253, 248, 0.96);
-            border: 1px solid rgba(148, 163, 184, 0.18);
-            border-radius: 20px;
-            box-shadow:
-                0 2px 8px rgba(15, 23, 42, 0.04),
-                0 8px 32px rgba(15, 23, 42, 0.05);
+        .trace-card,
+        [data-testid="stVerticalBlockBorderWrapper"] {
+            background: rgba(255, 252, 247, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 22px;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+        }
+
+        [data-testid="stVerticalBlockBorderWrapper"] {
+            padding: 1.1rem 1.2rem !important;
+            margin-bottom: 1rem !important;
+        }
+
+        [data-testid="stVerticalBlockBorderWrapper"] > div {
+            background: transparent !important;
+            border: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            padding: 0 !important;
         }
 
         /* ── Hero card ──────────────────────────────────────── */
         .hero-card {
-            padding: 1.7rem 1.9rem;
-            margin-bottom: 1.2rem;
-            border-left: 5px solid #f15a24;
-            background: linear-gradient(
-                135deg,
-                rgba(255, 253, 248, 0.98) 0%,
-                rgba(255, 247, 237, 0.98) 100%
-            );
+            padding: 1.4rem 1.5rem;
+            margin-bottom: 1rem;
         }
 
         .section-card,
@@ -70,7 +75,7 @@ def inject_styles() -> None:
         .step-card,
         .module-card,
         .trace-card {
-            padding: 1.2rem 1.4rem;
+            padding: 1.1rem 1.2rem;
             margin-bottom: 1rem;
         }
 
@@ -134,43 +139,34 @@ def inject_styles() -> None:
 
         /* ── Metric cards ───────────────────────────────────── */
         .metric-card {
-            padding: 1.3rem 1.35rem;
+            padding: 1.15rem 1.2rem;
             min-height: 152px;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            border-left: 6px solid transparent;
-            transition: transform 0.18s ease, box-shadow 0.18s ease;
-        }
-
-        .metric-card:hover {
-            transform: translateY(-3px);
-            box-shadow:
-                0 6px 20px rgba(15, 23, 42, 0.08),
-                0 16px 40px rgba(15, 23, 42, 0.07);
+            border-left: 8px solid transparent;
         }
 
         .metric-label {
             color: #64748b;
-            font-size: 0.75rem;
+            font-size: 0.86rem;
             text-transform: uppercase;
-            letter-spacing: 0.1em;
+            letter-spacing: 0.08em;
             font-weight: 700;
-            margin-bottom: 0.6rem;
+            margin-bottom: 0.55rem;
         }
 
         .metric-value {
-            font-size: 1.9rem;
-            line-height: 1.1;
+            font-size: 1.7rem;
+            line-height: 1.15;
             font-weight: 800;
             color: #0f172a;
-            letter-spacing: -0.025em;
         }
 
         .metric-copy {
-            margin-top: 0.5rem;
-            font-size: 0.85rem;
-            color: #64748b;
+            margin-top: 0.45rem;
+            font-size: 0.95rem;
+            color: #475569;
             line-height: 1.45;
         }
 
@@ -282,37 +278,38 @@ def inject_styles() -> None:
             margin: 0.2rem 0 0.85rem 0;
         }
 
+        .card-copy {
+            color: #475569;
+            line-height: 1.6;
+            margin-top: 0.45rem;
+        }
+
+        .card-copy strong {
+            color: #0f172a;
+        }
+
+        .card-list {
+            margin: 0.35rem 0 0.9rem 1.1rem;
+            padding: 0;
+            color: #475569;
+            line-height: 1.55;
+        }
+
+        .card-list li {
+            margin-bottom: 0.35rem;
+        }
+
+        .section-card code,
+        .module-card code {
+            background: rgba(226, 232, 240, 0.7);
+            border-radius: 8px;
+            padding: 0.12rem 0.35rem;
+            color: #0f172a;
+            font-size: 0.84em;
+        }
+
         /* ── Code / trace ───────────────────────────────────── */
         .trace-card pre { white-space: pre-wrap; }
-
-        /* ── Style st.container(border=True) like custom cards */
-        [data-testid="stVerticalBlockBorderWrapper"] {
-            background: rgba(255, 253, 248, 0.96) !important;
-            border: 1px solid rgba(148, 163, 184, 0.18) !important;
-            border-radius: 20px !important;
-            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04), 0 8px 32px rgba(15, 23, 42, 0.05) !important;
-            padding: 1.1rem 1.3rem !important;
-            margin-bottom: 1rem !important;
-        }
-
-        [data-testid="stVerticalBlockBorderWrapper"] > div {
-            background: transparent !important;
-            border: none !important;
-            border-radius: 0 !important;
-            box-shadow: none !important;
-            padding: 0 !important;
-        }
-
-        /* ── Auto-card via markdown sentinel ────────────────── */
-        div[data-testid="stLayoutWrapper"] > div[data-testid="stVerticalBlock"]:has(> div[data-testid="stElementContainer"] [data-testid="stMarkdownContainer"] > .card-title),
-        div[data-testid="stLayoutWrapper"] > div[data-testid="stVerticalBlock"]:has(> div[data-testid="stElementContainer"] [data-testid="stMarkdownContainer"] > .hero-eyebrow) {
-            background: rgba(255, 253, 248, 0.96);
-            border: 1px solid rgba(148, 163, 184, 0.18);
-            border-radius: 20px;
-            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04), 0 8px 32px rgba(15, 23, 42, 0.05);
-            padding: 1.2rem 1.4rem;
-            margin-bottom: 1rem;
-        }
 
         /* ── Radio / expander text ──────────────────────────── */
         .stRadio [data-baseweb="radio"] [data-testid="stMarkdownContainer"] p,
@@ -392,9 +389,9 @@ def inject_styles() -> None:
         }
 
         .kv-item {
-            background: rgba(241, 90, 36, 0.04);
-            border: 1px solid rgba(241, 90, 36, 0.1);
-            border-radius: 14px;
+            background: rgba(248, 250, 252, 0.72);
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            border-radius: 16px;
             padding: 0.85rem 0.95rem;
         }
 
@@ -459,11 +456,6 @@ def inject_styles() -> None:
             border: none;
             border-top: 1px solid rgba(148, 163, 184, 0.18);
             margin: 0.75rem 0;
-        }
-
-        /* ── Expert module cards ────────────────────────────── */
-        .module-card {
-            border-top: 3px solid #f15a24;
         }
 
         /* ── Download button ────────────────────────────────── */
