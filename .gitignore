@@ -9,6 +9,7 @@ __pycache__/
 build/
 dist/
 .env
+.runtime.local-hf.env
 data/reports/
 data/audit_log.jsonl
 .DS_Store

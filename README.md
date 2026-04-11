@@ -237,6 +237,29 @@ This starts:
 - backend: `http://127.0.0.1:8080`
 - frontend: `http://127.0.0.1:8501`
 
+### Option 5 — Bootstrap a real local SLM first
+
+If you want a one-command local-HF setup that installs dependencies, preloads the model, and runs a smoke-test before you launch the UI:
+
+```bash
+./scripts/bootstrap_local_slm.sh
+```
+
+The default preset is `google/gemma-3-270m-it`, which is a practical first bring-up target for a single-GPU machine. You can keep the same flow and switch to a stronger model later:
+
+```bash
+./scripts/bootstrap_local_slm.sh --preset gemma3-4b-fp16
+./scripts/bootstrap_local_slm.sh --preset qwen2.5-0.5b
+```
+
+To bootstrap and immediately start both the backend and the Streamlit UI:
+
+```bash
+./scripts/bootstrap_local_slm.sh --start-demo
+```
+
+The bootstrap writes `.runtime.local-hf.env`, and both `scripts/start_demo.sh` and `scripts/run_local.sh` automatically reuse it if the file is present.
+
 ---
 
 ## API Endpoints

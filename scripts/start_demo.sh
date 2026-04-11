@@ -5,6 +5,12 @@ cd "$(dirname "$0")/.."
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 INSTALL_PROFILE="${INSTALL_PROFILE:-local-hf}"
 
+if [[ -f .runtime.local-hf.env ]]; then
+  set -a
+  source ./.runtime.local-hf.env
+  set +a
+fi
+
 if [[ "$INSTALL_PROFILE" == "local-hf" ]]; then
   if ! "$PYTHON_BIN" -m pip install -e ".[local-hf]"; then
     echo "Local HF dependencies were not installed; falling back to base install and rules_fallback execution."

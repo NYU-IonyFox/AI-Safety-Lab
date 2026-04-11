@@ -121,6 +121,19 @@ class LocalHFRunner(SLMRunner):
     def describe(self) -> dict[str, str]:
         return {"backend": self.backend_name, "model_id": self.model_id}
 
+    def warmup(self) -> dict[str, str]:
+        """
+        Load the local runtime before the first expert call so bootstrap scripts
+        can pre-download weights and validate the selected model/device pair.
+        """
+
+        self._ensure_runtime()
+        return {
+            "backend": self.backend_name,
+            "model_id": self.model_id,
+            "runtime_device": self._runtime_device,
+        }
+
     def _generate_response_text(
         self,
         task: str,

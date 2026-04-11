@@ -71,3 +71,16 @@ def test_local_hf_runner_parses_and_normalizes_generated_json_without_model_load
     assert result["findings"] == ["a"]
     assert result["evaluation_status"] == "success"
     assert result["evidence"]["service"] == "local_hf"
+
+
+def test_local_hf_runner_warmup_surfaces_runtime_metadata(monkeypatch) -> None:
+    monkeypatch.setenv("LOCAL_HF_MODEL_ID", "google/gemma-3-270m-it")
+    runner = LocalHFRunner()
+    monkeypatch.setattr(runner, "_ensure_runtime", lambda: None)
+    runner._runtime_device = "cuda"
+
+    assert runner.warmup() == {
+        "backend": "local_hf",
+        "model_id": "google/gemma-3-270m-it",
+        "runtime_device": "cuda",
+    }
