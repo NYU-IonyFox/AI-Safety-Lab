@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from app.slm.factory import get_slm_runner
@@ -133,3 +135,66 @@ def test_local_hf_runner_prefers_chat_template_when_available() -> None:
 
     result = runner._tokenize_prompt(ChatTokenizer(), "system prompt", "user prompt")
     assert result == {"input_ids": [1, 2, 3]}
+
+
+def test_local_hf_runner_clears_sampling_flags_for_greedy_decode(monkeypatch) -> None:
+    runner = LocalHFRunner()
+    runner.temperature = 0.0
+    runner.top_p = 1.0
+
+    class FakeTensor:
+        def __init__(self, values):
+            self.values = values
+
+        def to(self, _device: str):
+            return self
+
+        def __getitem__(self, item):
+            return self.values[item]
+
+        @property
+        def shape(self):
+            if isinstance(self.values, list) and self.values and isinstance(self.values[0], list):
+                return (len(self.values), len(self.values[0]))
+            return (len(self.values),)
+
+    class FakeTokenizer:
+        eos_token_id = 1
+        pad_token_id = 1
+
+        def __call__(self, prompt: str, return_tensors: str, truncation: bool):
+            return {"input_ids": FakeTensor([[10, 11]]), "attention_mask": FakeTensor([[1, 1]])}
+
+        def decode(self, _ids, skip_special_tokens: bool) -> str:
+            return '{"risk_score": 0.5, "confidence": 0.5, "critical": false, "risk_tier": "LOW", "summary": "ok", "findings": [], "evaluation_status": "success"}'
+
+    captured: dict[str, object] = {}
+
+    class FakeModel:
+        def __init__(self) -> None:
+            self.generation_config = SimpleNamespace(temperature=0.7, top_p=0.9, top_k=50)
+
+        def generate(self, **kwargs):
+            captured.update(kwargs)
+            return [FakeTensor([10, 11, 12, 13])]
+
+    class NoGrad:
+        def __enter__(self):
+            return None
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    runner._tokenizer = FakeTokenizer()
+    runner._model = FakeModel()
+    runner._torch = SimpleNamespace(no_grad=lambda: NoGrad())
+    runner._runtime_device = "cpu"
+    runner._runtime_ready = True
+
+    runner.complete_json(task="team1_policy_expert", payload={"foo": "bar"})
+
+    generation_config = captured["generation_config"]
+    assert captured["do_sample"] is False
+    assert generation_config.temperature is None
+    assert generation_config.top_p is None
+    assert generation_config.top_k is None

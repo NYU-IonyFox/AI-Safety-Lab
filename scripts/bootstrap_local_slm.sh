@@ -121,19 +121,17 @@ if [[ "${SKIP_SMOKE_TEST}" != "1" ]]; then
   "$PYTHON_BIN" -c "from app.main import smoke_test; import json; print(json.dumps(smoke_test(), indent=2))"
 fi
 
-cat <<EOF
-
-Local SLM runtime prepared.
-Preset: ${MODEL_PRESET}
-Model:  ${LOCAL_HF_MODEL_ID}
-Env:    $(pwd)/.runtime.local-hf.env
-
-To reuse this configuration in a shell:
-  source ./.runtime.local-hf.env
-
-To start the API + Streamlit with this model:
-  source ./.runtime.local-hf.env && ./scripts/start_demo.sh
-EOF
+printf '\n'
+printf 'Local SLM runtime prepared.\n'
+printf 'Preset: %s\n' "${MODEL_PRESET}"
+printf 'Model:  %s\n' "${LOCAL_HF_MODEL_ID}"
+printf 'Env:    %s/.runtime.local-hf.env\n' "$(pwd)"
+printf '\n'
+printf 'To reuse this configuration in a shell:\n'
+printf '  source ./.runtime.local-hf.env\n'
+printf '\n'
+printf 'To start the API + Streamlit with this model:\n'
+printf '  source ./.runtime.local-hf.env && ./scripts/start_demo.sh\n'
 
 if [[ "${START_DEMO}" == "1" ]]; then
   echo "Starting demo services with ${MODEL_PRESET}..."

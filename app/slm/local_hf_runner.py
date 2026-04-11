@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from copy import deepcopy
 from typing import Any
 
 from app.slm.base import SLMRunner
@@ -192,6 +193,15 @@ class LocalHFRunner(SLMRunner):
             "eos_token_id": tokenizer.eos_token_id,
             "pad_token_id": tokenizer.pad_token_id or tokenizer.eos_token_id,
         }
+        generation_config = deepcopy(getattr(model, "generation_config", None))
+        if generation_config is not None:
+            if not do_sample:
+                # Suppress model-level sampling defaults that trigger noisy
+                # warnings during greedy decoding on small local checkpoints.
+                generation_config.temperature = None
+                generation_config.top_p = None
+                generation_config.top_k = None
+            generation_kwargs["generation_config"] = generation_config
         if do_sample:
             generation_kwargs["temperature"] = self.temperature
             generation_kwargs["top_p"] = self.top_p
