@@ -1,0 +1,18 @@
+{
+  "context": {
+    "agent_name": "VeriMedia",
+    "description": "Repository submission for AI safety review",
+    "domain": "Other",
+    "capabilities": [],
+    "high_autonomy": false
+  },
+  "selected_policies": ["eu_ai_act", "us_nist", "iso", "unesco"],
+  "conversation": [],
+  "metadata": {},
+  "submission": {
+    "source_type": "local_path",
+    "local_path": "../target",
+    "target_name": "VeriMedia",
+    "description": "Flask app for text, audio, and video toxicity analysis"
+  }
+}

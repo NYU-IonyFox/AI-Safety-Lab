@@ -1,0 +1,39 @@
+services:
+  safety-lab-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: safety-lab-api
+    env_file:
+      - .env
+    environment:
+      SLM_BACKEND: ${SLM_BACKEND:-local}
+      EXPERT_EXECUTION_MODE: ${EXPERT_EXECUTION_MODE:-hybrid}
+      LOCAL_SLM_ENDPOINT: ${LOCAL_SLM_ENDPOINT:-http://slm-mock:9000/v1/complete-json}
+      LOCAL_SLM_TIMEOUT_SEC: ${LOCAL_SLM_TIMEOUT_SEC:-60}
+      LOCAL_SLM_API_KEY: ${LOCAL_SLM_API_KEY:-}
+      INSPECT_ENABLED: ${INSPECT_ENABLED:-false}
+      INSPECT_COMMAND_TEMPLATE: ${INSPECT_COMMAND_TEMPLATE:-}
+      INSPECT_TIMEOUT_SEC: ${INSPECT_TIMEOUT_SEC:-600}
+      INSPECT_WORKDIR: ${INSPECT_WORKDIR:-/app}
+      GARAK_ENABLED: ${GARAK_ENABLED:-false}
+      GARAK_COMMAND_TEMPLATE: ${GARAK_COMMAND_TEMPLATE:-}
+      GARAK_TIMEOUT_SEC: ${GARAK_TIMEOUT_SEC:-600}
+      GARAK_WORKDIR: ${GARAK_WORKDIR:-/app}
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "8080:8080"
+    depends_on:
+      - slm-mock
+    restart: unless-stopped
+
+  slm-mock:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: slm-mock
+    command: ["uvicorn", "services.mock_slm_server:app", "--host", "0.0.0.0", "--port", "9000"]
+    ports:
+      - "9000:9000"
+    restart: unless-stopped
