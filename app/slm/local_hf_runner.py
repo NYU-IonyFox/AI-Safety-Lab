@@ -17,7 +17,7 @@ class LocalHFRunner(SLMRunner):
     """
 
     def __init__(self) -> None:
-        self.model_id = os.getenv("LOCAL_HF_MODEL_ID", "Qwen/Qwen2.5-0.5B-Instruct").strip()
+        self.model_id = os.getenv("LOCAL_HF_MODEL_ID", "Qwen/Qwen2.5-1.5B-Instruct").strip()
         self.max_input_chars = int(os.getenv("LOCAL_HF_MAX_INPUT_CHARS", "12000"))
         self.max_new_tokens = int(os.getenv("LOCAL_HF_MAX_NEW_TOKENS", "320"))
         self.temperature = float(os.getenv("LOCAL_HF_TEMPERATURE", "0.1"))

@@ -245,12 +245,12 @@ If you want a one-command local-HF setup that installs dependencies, preloads th
 ./scripts/bootstrap_local_slm.sh
 ```
 
-The default preset is `Qwen/Qwen2.5-0.5B-Instruct`, which is a practical ungated bring-up target for a clean machine. You can keep the same flow and switch to stronger or alternative models later:
+The default preset is `Qwen/Qwen2.5-1.5B-Instruct`, which is a practical public mid-size bring-up target for a clean machine. You can keep the same flow and switch to stronger or alternative models later:
 
 ```bash
-./scripts/bootstrap_local_slm.sh --preset smollm2-1.7b
+./scripts/bootstrap_local_slm.sh --preset qwen2.5-3b
 ./scripts/bootstrap_local_slm.sh --preset gemma3-4b-fp16
-./scripts/bootstrap_local_slm.sh --preset qwen2.5-0.5b
+./scripts/bootstrap_local_slm.sh --preset qwen2.5-1.5b
 ```
 
 The `gemma3-4b-fp16` preset is tuned for a local CUDA machine:
@@ -264,8 +264,8 @@ The `gemma3-4b-fp16` preset is tuned for a local CUDA machine:
 
 Other low-friction public presets:
 
-- `qwen2.5-0.5b` → `Qwen/Qwen2.5-0.5B-Instruct`
-- `smollm2-1.7b` → `HuggingFaceTB/SmolLM2-1.7B-Instruct`
+- `qwen2.5-1.5b` → `Qwen/Qwen2.5-1.5B-Instruct`
+- `qwen2.5-3b` → `Qwen/Qwen2.5-3B-Instruct`
 
 To bootstrap and immediately start both the backend and the Streamlit UI:
 

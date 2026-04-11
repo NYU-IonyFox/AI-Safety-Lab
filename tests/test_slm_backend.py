@@ -41,7 +41,7 @@ def test_local_hf_runner_requires_model_id_at_runtime(monkeypatch) -> None:
 
 
 def test_local_hf_runner_surfaces_missing_dependency_hint(monkeypatch) -> None:
-    monkeypatch.setenv("LOCAL_HF_MODEL_ID", "Qwen/Qwen2.5-0.5B-Instruct")
+    monkeypatch.setenv("LOCAL_HF_MODEL_ID", "Qwen/Qwen2.5-1.5B-Instruct")
     runner = LocalHFRunner()
 
     def _raise_missing() -> tuple[object, object, object]:
@@ -53,7 +53,7 @@ def test_local_hf_runner_surfaces_missing_dependency_hint(monkeypatch) -> None:
 
 
 def test_local_hf_runner_parses_and_normalizes_generated_json_without_model_load(monkeypatch) -> None:
-    monkeypatch.setenv("LOCAL_HF_MODEL_ID", "Qwen/Qwen2.5-0.5B-Instruct")
+    monkeypatch.setenv("LOCAL_HF_MODEL_ID", "Qwen/Qwen2.5-1.5B-Instruct")
     runner = LocalHFRunner()
     monkeypatch.setattr(runner, "_ensure_runtime", lambda: None)
     monkeypatch.setattr(
