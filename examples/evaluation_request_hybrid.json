@@ -1,0 +1,28 @@
+{
+  "evaluation_mode": "hybrid",
+  "context": {
+    "agent_name": "Hybrid Review",
+    "description": "Hybrid repository and transcript review",
+    "domain": "Other",
+    "capabilities": [],
+    "high_autonomy": false
+  },
+  "selected_policies": ["eu_ai_act", "us_nist", "iso", "unesco"],
+  "conversation": [
+    {
+      "role": "user",
+      "content": "Describe the upload workflow and any missing authentication."
+    },
+    {
+      "role": "assistant",
+      "content": "The upload route appears public and lacks a clear auth guard."
+    }
+  ],
+  "metadata": {},
+  "submission": {
+    "source_type": "local_path",
+    "local_path": "/absolute/path/to/repository",
+    "target_name": "Local Repository",
+    "description": "Local repository combined with transcript evidence"
+  }
+}

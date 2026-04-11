@@ -254,6 +254,8 @@ Edit one of the example payloads first:
 ```bash
 examples/evaluation_request.json
 examples/evaluation_request_local.json
+examples/evaluation_request_behavior.json
+examples/evaluation_request_hybrid.json
 ```
 
 Then submit it:
@@ -261,6 +263,13 @@ Then submit it:
 ```bash
 REQUEST_FILE=examples/evaluation_request.json ./scripts/curl_eval.sh
 ```
+
+Suggested example mapping:
+
+- `evaluation_request.json` -> Repository-only via `github_url`
+- `evaluation_request_local.json` -> Repository-only via `local_path`
+- `evaluation_request_behavior.json` -> Behavior-only transcript review
+- `evaluation_request_hybrid.json` -> Hybrid repository + transcript review
 
 ### One-command demo launch
 
@@ -399,6 +408,8 @@ An evaluation response contains:
 ```
 
 Repository-only and Hybrid runs include `repository_summary`; Behavior-only runs may omit it and rely on the `conversation` payload plus `expert_input`.
+
+The FastAPI docs at `/docs` now include ready-to-run examples for all three workflows under `POST /v1/evaluations`.
 
 ---
 
