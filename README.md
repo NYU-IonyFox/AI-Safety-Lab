@@ -275,6 +275,13 @@ To bootstrap and immediately start both the backend and the Streamlit UI:
 
 The bootstrap writes `.runtime.local-hf.env`, and both `scripts/start_demo.sh` and `scripts/run_local.sh` automatically reuse it if the file is present.
 
+If the local HF model loads but experts still show `rules_fallback`, use the built-in diagnosis helper to print each expert's `fallback_reason`:
+
+```bash
+source ./.runtime.local-hf.env
+python scripts/diagnose_local_slm.py
+```
+
 ---
 
 ## API Endpoints

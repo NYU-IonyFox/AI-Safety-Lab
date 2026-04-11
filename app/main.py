@@ -76,6 +76,7 @@ def smoke_test() -> dict[str, object]:
             "risk_tier": verdict.risk_tier,
             "runner_mode": str(verdict.evidence.get("execution_path", "unknown")),
             "backend": str(verdict.evidence.get("configured_backend", orchestrator.version.expert_model_backend)),
+            "fallback_reason": str(verdict.evidence.get("fallback_reason", "")),
         }
 
     council = synthesize_council(verdicts)

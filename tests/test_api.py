@@ -136,6 +136,7 @@ def test_smoke_test_initializes_all_three_experts() -> None:
         "system_and_deployment",
     }
     assert all(item["status"] == "ok" for item in body["experts"].values())
+    assert all("fallback_reason" in item for item in body["experts"].values())
     assert body["council_preview"]["decision_rule_triggered"]
 
 
