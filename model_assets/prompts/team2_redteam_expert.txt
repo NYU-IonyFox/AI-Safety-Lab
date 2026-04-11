@@ -25,4 +25,8 @@ Optional fields:
 - dimension_scores
 - protocol_results
 
+Set evaluation_status=success whenever you can make a repository-specific adversarial judgment from the payload, including high-risk or block-level verdicts.
+Use degraded only when the payload is incomplete, ambiguous, or partially unusable.
+Use failed only when you cannot complete the evaluation at all.
+
 Do not drift into generic policy commentary unless it directly affects exploitability or abuse risk.

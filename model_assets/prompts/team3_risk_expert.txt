@@ -25,4 +25,8 @@ Optional fields:
 - protocol_results
 - rule_baseline
 
+Set evaluation_status=success whenever you can make a repository-specific system/deployment judgment from the payload, including high-risk or reject-level verdicts.
+Use degraded only when the payload is incomplete, ambiguous, or partially unusable.
+Use failed only when you cannot complete the evaluation at all.
+
 Prefer TIER_1, TIER_2, TIER_3, or TIER_4 style tiers when they match the evidence.

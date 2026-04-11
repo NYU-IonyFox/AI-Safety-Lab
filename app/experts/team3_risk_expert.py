@@ -116,7 +116,7 @@ class Team3RiskExpert(ExpertModule):
             system_prompt=load_expert_system_prompt(self.name),
             response_contract=response_contract_for(self.name),
         )
-        evaluation_status = self._normalize_status(result.get("evaluation_status", "success"))
+        evaluation_status = self._normalize_slm_status(result)
         if isinstance(result.get("protocol_results"), list):
             return self._from_protocol_results(
                 input_package=input_package,
@@ -436,3 +436,33 @@ class Team3RiskExpert(ExpertModule):
         if status in {"success", "degraded", "failed"}:
             return status
         return "success"
+
+    def _normalize_slm_status(self, result: dict[str, Any]) -> str:
+        status = self._normalize_status(result.get("evaluation_status", "success"))
+        if status in {"degraded", "failed"} and self._is_complete_slm_judgment(result):
+            return "success"
+        return status
+
+    def _is_complete_slm_judgment(self, result: dict[str, Any]) -> bool:
+        summary = str(result.get("summary", "")).strip()
+        findings = [str(item).strip() for item in result.get("findings", []) if str(item).strip()]
+        if not summary or not findings:
+            return False
+        try:
+            float(result.get("risk_score", 0.0))
+            float(result.get("confidence", 0.0))
+        except (TypeError, ValueError):
+            return False
+        if not str(result.get("risk_tier", "")).strip():
+            return False
+
+        failure_markers = (
+            "unable to evaluate",
+            "cannot evaluate",
+            "could not evaluate",
+            "insufficient information",
+            "payload incomplete",
+            "input malformed",
+        )
+        narrative = f"{summary} {' '.join(findings[:3])}".lower()
+        return not any(marker in narrative for marker in failure_markers)

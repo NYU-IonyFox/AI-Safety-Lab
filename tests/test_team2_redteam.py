@@ -118,3 +118,35 @@ def test_team2_reduces_risk_when_auth_and_upload_controls_are_present(tmp_path: 
     assert risky_result.risk_tier in {"HIGH", "UNACCEPTABLE"}
     assert safer_result.detail_payload.protocol_results
     assert any(item.status == "PASS" for item in safer_result.detail_payload.protocol_results)
+
+
+def test_team2_normalizes_complete_slm_verdict_to_success() -> None:
+    expert = Team2RedTeamExpert()
+
+    result = {
+        "risk_score": 0.87,
+        "confidence": 0.92,
+        "critical": True,
+        "risk_tier": "HIGH",
+        "summary": "Repository exposes a public upload-to-model path with exploitable misuse chains.",
+        "findings": ["Public upload route enables hostile file delivery."],
+        "evaluation_status": "failed",
+    }
+
+    assert expert._normalize_slm_status(result) == "success"
+
+
+def test_team2_preserves_degraded_when_model_admits_incomplete_input() -> None:
+    expert = Team2RedTeamExpert()
+
+    result = {
+        "risk_score": 0.5,
+        "confidence": 0.3,
+        "critical": False,
+        "risk_tier": "LIMITED",
+        "summary": "Unable to evaluate because the payload is incomplete.",
+        "findings": ["Insufficient information to complete adversarial review."],
+        "evaluation_status": "degraded",
+    }
+
+    assert expert._normalize_slm_status(result) == "degraded"
