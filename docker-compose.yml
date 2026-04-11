@@ -4,14 +4,13 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: safety-lab-api
-    env_file:
-      - .env
     environment:
-      SLM_BACKEND: ${SLM_BACKEND:-local}
-      EXPERT_EXECUTION_MODE: ${EXPERT_EXECUTION_MODE:-hybrid}
+      SLM_BACKEND: ${SLM_BACKEND:-mock}
+      EXPERT_EXECUTION_MODE: ${EXPERT_EXECUTION_MODE:-rules}
       LOCAL_SLM_ENDPOINT: ${LOCAL_SLM_ENDPOINT:-http://slm-mock:9000/v1/complete-json}
       LOCAL_SLM_TIMEOUT_SEC: ${LOCAL_SLM_TIMEOUT_SEC:-60}
       LOCAL_SLM_API_KEY: ${LOCAL_SLM_API_KEY:-}
+      TEAM3_REQUIRE_LOCAL_SLM: ${TEAM3_REQUIRE_LOCAL_SLM:-false}
       INSPECT_ENABLED: ${INSPECT_ENABLED:-false}
       INSPECT_COMMAND_TEMPLATE: ${INSPECT_COMMAND_TEMPLATE:-}
       INSPECT_TIMEOUT_SEC: ${INSPECT_TIMEOUT_SEC:-600}
@@ -24,8 +23,6 @@ services:
       - ./data:/app/data
     ports:
       - "8080:8080"
-    depends_on:
-      - slm-mock
     restart: unless-stopped
 
   slm-mock:
