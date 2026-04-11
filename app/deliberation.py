@@ -193,7 +193,7 @@ def _revise_verdict(
     }
     summary = verdict.summary
     if "peer critique reinforced" not in summary.lower():
-        summary = f"{summary.rstrip('.')} Peer critique reinforced this assessment."
+        summary = f"{summary.rstrip('.')}. Peer critique reinforced this assessment."
     return verdict.model_copy(
         update={
             "risk_score": revised_risk,

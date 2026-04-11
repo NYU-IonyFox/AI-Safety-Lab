@@ -99,6 +99,10 @@ def build_markdown_report(
         if expert.findings:
             lines.append("- **Key findings:**")
             lines.extend([f"  - {finding}" for finding in expert.findings[:8]])
+        expert_evidence = _expert_evidence_lines(expert)
+        if expert_evidence:
+            lines.append("- **Expert-specific evidence:**")
+            lines.extend([f"  - {item}" for item in expert_evidence])
         lines.append("")
 
     lines.extend(
@@ -136,3 +140,52 @@ def build_markdown_report(
 
 def _expert_title(expert_name: str) -> str:
     return EXPERT_TITLES.get(expert_name, expert_name)
+
+
+def _expert_evidence_lines(expert: ExpertVerdict) -> list[str]:
+    evidence = expert.evidence or {}
+
+    if expert.expert_name == "team1_policy_expert":
+        lines = []
+        controls = [str(item) for item in evidence.get("policy_scope_controls", []) if str(item).strip()]
+        if controls:
+            lines.append(f"Governance controls observed: {', '.join(controls[:3])}.")
+        policy_evidence = evidence.get("policy_scope_evidence", [])
+        if isinstance(policy_evidence, list):
+            for item in policy_evidence[:2]:
+                if isinstance(item, dict):
+                    lines.append(f"{item.get('path', 'unknown')}: {item.get('signal', 'Policy evidence')}.")
+        return lines[:3]
+
+    if expert.expert_name == "team2_redteam_expert":
+        lines = []
+        taxonomy = evidence.get("taxonomy", {})
+        if isinstance(taxonomy, dict):
+            owasp = [str(item) for item in taxonomy.get("owasp_categories", []) if str(item).strip()]
+            mitre = [str(item) for item in taxonomy.get("mitre_tactics", []) if str(item).strip()]
+            if owasp:
+                lines.append(f"OWASP categories exercised: {', '.join(owasp[:3])}.")
+            if mitre:
+                lines.append(f"MITRE-style tactics exercised: {', '.join(mitre[:3])}.")
+        redteam_surface = evidence.get("redteam_surface", {})
+        if isinstance(redteam_surface, dict):
+            signals = [str(item) for item in redteam_surface.get("surface_signals", []) if str(item).strip()]
+            if signals:
+                lines.append(f"Threat-surface signals: {', '.join(signals[:3])}.")
+        return lines[:3]
+
+    if expert.expert_name == "team3_risk_expert":
+        lines = []
+        scope_evidence = evidence.get("system_scope_evidence", [])
+        if isinstance(scope_evidence, list):
+            for item in scope_evidence[:2]:
+                if isinstance(item, dict):
+                    lines.append(f"{item.get('path', 'unknown')}: {item.get('signal', 'System evidence')}.")
+        rule_baseline = evidence.get("rule_baseline", {})
+        if isinstance(rule_baseline, dict):
+            risk_tier = str(rule_baseline.get("risk_tier", "")).strip()
+            if risk_tier:
+                lines.append(f"Baseline system tier before protocol synthesis: {risk_tier}.")
+        return lines[:3]
+
+    return []

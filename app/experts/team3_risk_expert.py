@@ -254,7 +254,8 @@ class Team3RiskExpert(ExpertModule):
         pass_rate = (passed / total * 100.0) if total else 100.0
         safety_score = pass_rate
         protocol_risk_score = 1.0 - (safety_score / 100.0) if total else 0.0
-        rule_baseline = extra_evidence.get("rule_baseline", {})
+        baseline_snapshot = extra_evidence.get("rule_baseline", {})
+        rule_baseline = baseline_snapshot
         baseline_risk_score = float(rule_baseline.get("risk_score", 0.0)) if isinstance(rule_baseline, dict) else 0.0
         risk_score = max(protocol_risk_score, baseline_risk_score)
 
@@ -334,6 +335,8 @@ class Team3RiskExpert(ExpertModule):
                 "protocol_results": protocol_results,
                 "safety_score": round(safety_score, 2),
                 "pass_rate": round(pass_rate, 2),
+                "rule_baseline": baseline_snapshot,
+                "system_scope_evidence": baseline_snapshot.get("system_scope_evidence", []) if isinstance(baseline_snapshot, dict) else [],
                 **extra_evidence,
             },
             evaluation_status=str(detail.evaluation_status),

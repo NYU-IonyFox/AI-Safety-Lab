@@ -47,6 +47,7 @@ def _assert_report_shape(body: dict) -> None:
     assert "AI Safety Lab Stakeholder Evaluation Report" in report_text
     assert "Cross-expert critique" in report_text
     assert "Deliberation trail" in report_text
+    assert "Expert-specific evidence" in report_text
     assert "Recommended actions before sign-off" in report_text
     assert "Detected repository signals" in report_text
     assert "Evidence from repository" in report_text

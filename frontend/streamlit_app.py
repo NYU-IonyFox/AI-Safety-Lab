@@ -187,6 +187,50 @@ def decision_rule_label(rule_name: str) -> str:
     return DECISION_RULE_LABELS.get(rule_name, rule_name.replace("_", " "))
 
 
+def expert_evidence_lines(expert: dict) -> list[str]:
+    evidence = expert.get("evidence", {}) if isinstance(expert, dict) else {}
+    expert_name = str(expert.get("expert_name", ""))
+
+    if expert_name == "team1_policy_expert":
+        lines = []
+        controls = [str(item) for item in evidence.get("policy_scope_controls", []) if str(item).strip()]
+        if controls:
+            lines.append(f"Governance controls observed: {', '.join(controls[:3])}.")
+        for item in evidence.get("policy_scope_evidence", [])[:2]:
+            if isinstance(item, dict):
+                lines.append(f"{item.get('path', 'unknown')}: {item.get('signal', 'Policy evidence')}.")
+        return lines[:3]
+
+    if expert_name == "team2_redteam_expert":
+        lines = []
+        taxonomy = evidence.get("taxonomy", {})
+        if isinstance(taxonomy, dict):
+            owasp = [str(item) for item in taxonomy.get("owasp_categories", []) if str(item).strip()]
+            mitre = [str(item) for item in taxonomy.get("mitre_tactics", []) if str(item).strip()]
+            if owasp:
+                lines.append(f"OWASP categories: {', '.join(owasp[:3])}.")
+            if mitre:
+                lines.append(f"MITRE-style tactics: {', '.join(mitre[:3])}.")
+        surface = evidence.get("redteam_surface", {})
+        if isinstance(surface, dict):
+            signals = [str(item) for item in surface.get("surface_signals", []) if str(item).strip()]
+            if signals:
+                lines.append(f"Threat surface signals: {', '.join(signals[:3])}.")
+        return lines[:3]
+
+    if expert_name == "team3_risk_expert":
+        lines = []
+        for item in evidence.get("system_scope_evidence", [])[:2]:
+            if isinstance(item, dict):
+                lines.append(f"{item.get('path', 'unknown')}: {item.get('signal', 'System evidence')}.")
+        rule_baseline = evidence.get("rule_baseline", {})
+        if isinstance(rule_baseline, dict) and rule_baseline.get("risk_tier"):
+            lines.append(f"Baseline deployment tier: {rule_baseline.get('risk_tier')}.")
+        return lines[:3]
+
+    return []
+
+
 def render_metric(label: str, value: str, tone: str, copy: str) -> None:
     st.markdown(
         f"""
@@ -336,12 +380,24 @@ def render_submission_form() -> None:
     with left:
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
         st.subheader("Repository submission")
-        source_type = st.radio("Source type", ["github_url", "local_path"], horizontal=True)
-        target_name = st.text_input("Target name", value="Submitted Repository")
-        description = st.text_area("Optional description", value=DEFAULT_DESCRIPTION, height=100)
-        github_url = st.text_input("GitHub URL", value=DEFAULT_GITHUB_TARGET, disabled=(source_type != "github_url"), placeholder="https://github.com/owner/repository")
-        local_path = st.text_input("Local path", value=DEFAULT_LOCAL_TARGET, disabled=(source_type != "local_path"))
-        st.caption("Use GitHub URL for public repositories or local path for offline evaluation.")
+        source_options = {
+            "Public GitHub repository (recommended)": "github_url",
+            "Local folder on this machine": "local_path",
+        }
+        source_label = st.radio("Choose what to review", list(source_options.keys()), horizontal=True)
+        source_type = source_options[source_label]
+        github_url = ""
+        local_path = ""
+        if source_type == "github_url":
+            github_url = st.text_input("GitHub URL", value=DEFAULT_GITHUB_TARGET, placeholder="https://github.com/owner/repository")
+            st.caption("Recommended for the smoothest evaluation flow. Paste a public repository link and run the review.")
+        else:
+            local_path = st.text_input("Local folder path", value=DEFAULT_LOCAL_TARGET, placeholder="/absolute/path/to/repository")
+            st.caption("Use this for local debugging or offline review on the same machine as the backend.")
+
+        with st.expander("Optional labels", expanded=False):
+            target_name = st.text_input("Display name", value="Submitted Repository")
+            description = st.text_area("Short description", value=DEFAULT_DESCRIPTION, height=90)
         st.markdown("</div>", unsafe_allow_html=True)
 
     with right:
@@ -353,11 +409,11 @@ def render_submission_form() -> None:
         st.markdown("- Downloadable stakeholder report and JSON archive")
         st.markdown("</div>", unsafe_allow_html=True)
 
-    with st.expander("Advanced settings", expanded=False):
+    with st.expander("Advanced settings for local debugging", expanded=False):
         api_base = st.text_input("Backend API base", value=DEFAULT_API_BASE)
         target_endpoint = st.text_input("LLM endpoint (optional)", value="")
         target_model = st.text_input("Model name (optional)", value="")
-        st.caption("Leave target execution fields blank for the default local no-key path.")
+        st.caption("Most users can leave this closed. These fields are only needed for custom backend routing or target execution.")
 
     if st.button("Run evaluation", use_container_width=True):
         if source_type == "local_path" and not local_path.strip():
@@ -421,6 +477,11 @@ def render_expert_panels(experts: list[dict]) -> None:
             st.markdown("**Findings**")
             for finding in expert.get("findings", [])[:8]:
                 st.markdown(f"- {finding}")
+            evidence_lines = expert_evidence_lines(expert)
+            if evidence_lines:
+                st.markdown("**Expert-specific evidence**")
+                for item in evidence_lines:
+                    st.markdown(f"- {item}")
             with st.expander("Technical details", expanded=False):
                 st.markdown(f"**Status:** `{expert.get('evaluation_status', 'unknown')}`")
                 st.markdown(f"**Risk score:** {expert.get('risk_score', 0):.2f}")
