@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
+from app.analyzers.system_scope import analyze_system_scope
 from app.config import TEAM3_REQUIRE_LOCAL_SLM
 from app.experts.base import ExpertModule
 from app.schemas import (
@@ -154,6 +155,7 @@ class Team3RiskExpert(ExpertModule):
         capabilities = list(request.context.capabilities)
         high_autonomy = bool(request.context.high_autonomy)
         repo = request.repository_summary
+        system_scope = analyze_system_scope(repo.resolved_path, repo) if repo is not None and repo.resolved_path else None
 
         findings: list[str] = []
         risk_tier = "TIER_1"
@@ -181,6 +183,13 @@ class Team3RiskExpert(ExpertModule):
             capabilities = list(dict.fromkeys([*capabilities, *repo.media_modalities]))
             high_autonomy = high_autonomy or bool(repo.llm_backends)
 
+        if system_scope is not None:
+            findings.extend(system_scope.exposure_findings[:4])
+            if system_scope.exposure_findings:
+                risk_score = max(risk_score, 0.76)
+                risk_tier = "TIER_3"
+            if system_scope.control_findings:
+                findings.extend([f"System-scope control: {item}" for item in system_scope.control_findings[:2]])
 
         if domain in self.PROHIBITED_DOMAINS:
             risk_tier = "TIER_4"
@@ -206,6 +215,7 @@ class Team3RiskExpert(ExpertModule):
             "risk_score": risk_score,
             "critical": critical,
             "findings": findings,
+            "system_scope_evidence": [item.model_dump() for item in system_scope.evidence_items] if system_scope is not None else [],
         }
 
     def _run_protocol_rules(self, input_package: Team3RiskInput, protocol_plan: dict[str, Any]) -> list[dict[str, Any]]:

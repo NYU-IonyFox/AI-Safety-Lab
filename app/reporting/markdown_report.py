@@ -23,6 +23,7 @@ def build_markdown_report(
         "",
         "## Verdict at a glance",
         f"- **Final decision:** {council.decision}",
+        f"- **Initial council decision:** {council.initial_decision or council.decision}",
         f"- **Council score:** {council.council_score:.2f}",
         f"- **Human review required:** {'Yes' if council.needs_human_review else 'No'}",
         f"- **Arbitration rule triggered:** `{council.decision_rule_triggered or 'unspecified'}`",
@@ -75,6 +76,14 @@ def build_markdown_report(
         lines.extend([f"- {item}" for item in council.cross_expert_critique])
         lines.append("")
 
+    if council.deliberation_enabled and council.deliberation_trace:
+        lines.append("## Deliberation trail")
+        for item in council.deliberation_trace:
+            target_suffix = f" -> {item.target_expert}" if item.target_expert else ""
+            delta_suffix = f" (risk delta {item.risk_delta:+.2f})" if item.risk_delta else ""
+            lines.append(f"- **{item.phase.upper()}** `{item.author_expert}{target_suffix}`: {item.summary}{delta_suffix}")
+        lines.append("")
+
     lines.append("## Expert views")
     for expert in experts:
         lines.extend(
@@ -95,6 +104,8 @@ def build_markdown_report(
     lines.extend(
         [
             "## Council evidence trail",
+            f"- **Initial decision:** {council.initial_decision or council.decision}",
+            f"- **Initial rule triggered:** `{council.initial_decision_rule_triggered or council.decision_rule_triggered or 'unspecified'}`",
             f"- **Decision rule triggered:** `{council.decision_rule_triggered or 'unspecified'}`",
             f"- **Triggered by:** {', '.join(council.triggered_by) if council.triggered_by else 'None'}",
             f"- **Disagreement index:** {council.disagreement_index:.2f}",

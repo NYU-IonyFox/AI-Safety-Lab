@@ -211,14 +211,27 @@ class ExpertVerdict(StrictModel):
     metadata: ExpertMetadata | None = None
 
 
+class DeliberationExchange(StrictModel):
+    phase: Literal["initial", "critique", "defense", "revision"]
+    author_expert: str
+    target_expert: str = ""
+    summary: str
+    risk_delta: float = 0.0
+    evidence_refs: list[str] = Field(default_factory=list)
+
+
 class CouncilResult(StrictModel):
     decision: Decision
     council_score: float = Field(ge=0.0, le=1.0)
     needs_human_review: bool
     rationale: str
     decision_rule_triggered: str = ""
+    initial_decision: Decision | None = None
+    initial_decision_rule_triggered: str = ""
+    deliberation_enabled: bool = False
     consensus_summary: str = ""
     cross_expert_critique: list[str] = Field(default_factory=list)
+    deliberation_trace: list[DeliberationExchange] = Field(default_factory=list)
     recommended_actions: list[str] = Field(default_factory=list)
     disagreement_index: float = Field(ge=0.0, le=1.0)
     triggered_by: list[str] = Field(default_factory=list)

@@ -30,7 +30,7 @@ def synthesize_council(experts: list[ExpertVerdict]) -> CouncilResult:
             decision_rule_triggered="no_experts",
             consensus_summary="The council could not form a defensible decision because no expert outputs were available.",
             cross_expert_critique=["No expert viewpoints were available to compare or reconcile."],
-            recommended_actions=["Re-run the evaluation so all three expert modules produce outputs before grading."],
+            recommended_actions=["Re-run the evaluation so all three expert modules produce outputs before final review."],
             disagreement_index=1.0,
             triggered_by=["no_experts"],
             key_evidence=["No expert verdicts available."],

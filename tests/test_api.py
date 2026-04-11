@@ -37,6 +37,8 @@ def _assert_report_shape(body: dict) -> None:
     assert len(body["experts"]) == 3
     assert body["council_result"]["consensus_summary"]
     assert body["council_result"]["cross_expert_critique"]
+    assert body["council_result"]["deliberation_enabled"] is True
+    assert body["council_result"]["deliberation_trace"]
     assert body["council_result"]["recommended_actions"]
     assert body["council_result"]["decision_rule_triggered"]
     assert body["repository_summary"]["evidence_items"]
@@ -44,6 +46,7 @@ def _assert_report_shape(body: dict) -> None:
     report_text = Path(body["report_path"]).read_text(encoding="utf-8")
     assert "AI Safety Lab Stakeholder Evaluation Report" in report_text
     assert "Cross-expert critique" in report_text
+    assert "Deliberation trail" in report_text
     assert "Recommended actions before sign-off" in report_text
     assert "Detected repository signals" in report_text
     assert "Evidence from repository" in report_text

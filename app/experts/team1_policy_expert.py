@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.analyzers.policy_scope import analyze_policy_scope
 from app.experts.base import ExpertModule
 from app.schemas import (
     EvaluationRequest,
@@ -130,6 +131,7 @@ class Team1PolicyExpert(ExpertModule):
         findings: list[str] = []
         violations: list[dict[str, Any]] = []
         repo = input_package.repository_summary
+        policy_scope = analyze_policy_scope(repo.resolved_path, repo) if repo is not None and repo.resolved_path else None
 
         if repo is not None:
             if repo.framework == "Flask":
@@ -164,6 +166,26 @@ class Team1PolicyExpert(ExpertModule):
                     {
                         "policy": "ieee",
                         "hits": ["secret management", "accountability"],
+                        "turn_indexes": [],
+                    }
+                )
+
+        if policy_scope is not None:
+            for item in policy_scope.governance_controls[:3]:
+                findings.append(f"Policy-scope evidence: {item}")
+            for gap in policy_scope.policy_gaps[:4]:
+                findings.append(f"Policy-scope gap: {gap}")
+                policy = "iso"
+                if "privacy" in gap.lower() or "retention" in gap.lower():
+                    policy = "unesco"
+                elif "human-review" in gap.lower() or "escalation" in gap.lower():
+                    policy = "ieee"
+                elif "third-party" in gap.lower():
+                    policy = "us_nist"
+                violations.append(
+                    {
+                        "policy": policy,
+                        "hits": [gap],
                         "turn_indexes": [],
                     }
                 )
@@ -244,5 +266,7 @@ class Team1PolicyExpert(ExpertModule):
             evidence={
                 "selected_policies": input_package.selected_policies,
                 "violations": violations,
+                "policy_scope_controls": policy_scope.governance_controls if policy_scope is not None else [],
+                "policy_scope_evidence": [item.model_dump() for item in policy_scope.evidence_items] if policy_scope is not None else [],
             },
         )

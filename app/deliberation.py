@@ -1,0 +1,246 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from app.schemas import DeliberationExchange, EvaluationRequest, ExpertVerdict, RepositorySummary
+
+
+@dataclass(slots=True)
+class DeliberationResult:
+    revised_verdicts: list[ExpertVerdict]
+    trace: list[DeliberationExchange]
+
+
+def run_deliberation(request: EvaluationRequest, verdicts: list[ExpertVerdict]) -> DeliberationResult:
+    repo = request.repository_summary
+    trace = [
+        DeliberationExchange(
+            phase="initial",
+            author_expert=verdict.expert_name,
+            summary=f"Initial position: {verdict.summary}",
+            evidence_refs=_default_refs(repo),
+        )
+        for verdict in verdicts
+    ]
+
+    critiques_by_target: dict[str, list[DeliberationExchange]] = {verdict.expert_name: [] for verdict in verdicts}
+    for author in verdicts:
+        for target in verdicts:
+            if author.expert_name == target.expert_name:
+                continue
+            critique = _build_critique(author, target, repo)
+            if critique is None:
+                continue
+            critiques_by_target[target.expert_name].append(critique)
+            trace.append(critique)
+
+    revised_verdicts: list[ExpertVerdict] = []
+    for verdict in verdicts:
+        revised_verdicts.append(_revise_verdict(verdict, critiques_by_target[verdict.expert_name], trace))
+
+    return DeliberationResult(revised_verdicts=revised_verdicts, trace=trace)
+
+
+def _build_critique(
+    author: ExpertVerdict,
+    target: ExpertVerdict,
+    repository_summary: RepositorySummary | None,
+) -> DeliberationExchange | None:
+    if repository_summary is None:
+        return None
+
+    target_text = " ".join([target.summary, *target.findings]).lower()
+    severity_gap = author.risk_score - target.risk_score
+    evidence_refs = _default_refs(repository_summary)
+
+    if author.expert_name == "team1_policy_expert":
+        missing: list[str] = []
+        if "no_explicit_auth" in repository_summary.auth_signals and _lacks(target_text, ["auth", "access control", "authorization"]):
+            missing.append("visible access-control obligations")
+        if repository_summary.llm_backends and _lacks(target_text, ["third-party", "external model", "accountability", "processor"]):
+            missing.append("third-party model governance")
+        if repository_summary.upload_surfaces and _lacks(target_text, ["upload", "intake", "retention", "moderation"]):
+            missing.append("documented intake controls")
+        if missing:
+            return DeliberationExchange(
+                phase="critique",
+                author_expert=author.expert_name,
+                target_expert=target.expert_name,
+                summary=f"Policy critique: {target.expert_name} underweighted {', '.join(missing)} in a repository with public intake and governance exposure.",
+                evidence_refs=evidence_refs,
+            )
+        if severity_gap >= 0.18:
+            return DeliberationExchange(
+                phase="critique",
+                author_expert=author.expert_name,
+                target_expert=target.expert_name,
+                summary=f"Policy critique: {target.expert_name} is materially less severe than the governance evidence warrants.",
+                evidence_refs=evidence_refs,
+            )
+        return None
+
+    if author.expert_name == "team2_redteam_expert":
+        missing = []
+        if repository_summary.upload_surfaces and _lacks(target_text, ["upload", "hostile", "file", "payload"]):
+            missing.append("hostile file ingestion risk")
+        if repository_summary.llm_backends and _lacks(target_text, ["prompt", "jailbreak", "misuse", "abuse"]):
+            missing.append("prompt-injection or misuse pathways")
+        if "no_explicit_auth" in repository_summary.auth_signals and _lacks(target_text, ["unauthenticated", "abuse", "misuse", "rate"]):
+            missing.append("automated unauthenticated abuse risk")
+        if missing:
+            return DeliberationExchange(
+                phase="critique",
+                author_expert=author.expert_name,
+                target_expert=target.expert_name,
+                summary=f"Red-team critique: {target.expert_name} did not fully account for {', '.join(missing)}.",
+                evidence_refs=evidence_refs,
+            )
+        if severity_gap >= 0.18:
+            return DeliberationExchange(
+                phase="critique",
+                author_expert=author.expert_name,
+                target_expert=target.expert_name,
+                summary=f"Red-team critique: exploitability indicators justify a higher severity than {target.expert_name} assigned.",
+                evidence_refs=evidence_refs,
+            )
+        return None
+
+    if author.expert_name == "team3_risk_expert":
+        missing = []
+        if repository_summary.upload_surfaces and repository_summary.llm_backends and _lacks(target_text, ["system", "deployment", "boundary", "pipeline"]):
+            missing.append("system-boundary exposure")
+        if any(signal.startswith("default_secret_key") for signal in repository_summary.secret_signals) and _lacks(target_text, ["secret", "session", "deployment hardening"]):
+            missing.append("deployment hardening weakness")
+        if repository_summary.media_modalities and _lacks(target_text, ["media", "conversion", "transcription", "runtime"]):
+            missing.append("runtime handling of multimedia content")
+        if missing:
+            return DeliberationExchange(
+                phase="critique",
+                author_expert=author.expert_name,
+                target_expert=target.expert_name,
+                summary=f"System-risk critique: {target.expert_name} should more clearly reflect {', '.join(missing)}.",
+                evidence_refs=evidence_refs,
+            )
+        if severity_gap >= 0.18:
+            return DeliberationExchange(
+                phase="critique",
+                author_expert=author.expert_name,
+                target_expert=target.expert_name,
+                summary=f"System-risk critique: the architecture and deployment boundary justify a higher severity than {target.expert_name} assigned.",
+                evidence_refs=evidence_refs,
+            )
+        return None
+
+    return None
+
+
+def _revise_verdict(
+    verdict: ExpertVerdict,
+    critiques: list[DeliberationExchange],
+    trace: list[DeliberationExchange],
+) -> ExpertVerdict:
+    if not critiques:
+        return verdict
+
+    current_text = " ".join([verdict.summary, *verdict.findings]).lower()
+    novel_critiques = [critique for critique in critiques if _introduces_new_concern(critique.summary, current_text)]
+    if not novel_critiques:
+        trace.append(
+            DeliberationExchange(
+                phase="defense",
+                author_expert=verdict.expert_name,
+                summary=f"{verdict.expert_name} stood by the original assessment because peer critiques were already covered in its findings.",
+                evidence_refs=_flatten_refs(critiques),
+            )
+        )
+        return verdict
+
+    risk_delta = min(0.09, 0.03 * len(novel_critiques))
+    revised_risk = min(0.98, verdict.risk_score + risk_delta)
+    revised_confidence = min(0.95, verdict.confidence + 0.02 * len(critiques))
+    new_findings = list(verdict.findings)
+    for critique in novel_critiques:
+        new_findings.append(f"Deliberation revision: {critique.summary}")
+
+    trace.append(
+        DeliberationExchange(
+            phase="defense",
+            author_expert=verdict.expert_name,
+            summary=f"{verdict.expert_name} accepted {len(novel_critiques)} peer critique(s) and expanded the evidence base before final synthesis.",
+            evidence_refs=_flatten_refs(novel_critiques),
+        )
+    )
+    trace.append(
+        DeliberationExchange(
+            phase="revision",
+            author_expert=verdict.expert_name,
+            summary=f"{verdict.expert_name} revised risk from {verdict.risk_score:.2f} to {revised_risk:.2f} after deliberation.",
+            risk_delta=round(revised_risk - verdict.risk_score, 3),
+            evidence_refs=_flatten_refs(novel_critiques),
+        )
+    )
+
+    detail_payload = verdict.detail_payload.model_copy(
+        update={
+            "notes": [*verdict.detail_payload.notes, f"Deliberation accepted {len(novel_critiques)} peer critique(s)."],
+        }
+    )
+    evidence = dict(verdict.evidence)
+    evidence["deliberation"] = {
+        "received_from": [critique.author_expert for critique in critiques],
+        "accepted_from": [critique.author_expert for critique in novel_critiques],
+        "risk_delta": round(revised_risk - verdict.risk_score, 3),
+    }
+    summary = verdict.summary
+    if "peer critique reinforced" not in summary.lower():
+        summary = f"{summary.rstrip('.')} Peer critique reinforced this assessment."
+    return verdict.model_copy(
+        update={
+            "risk_score": revised_risk,
+            "confidence": revised_confidence,
+            "risk_tier": _coerce_risk_tier(verdict, revised_risk),
+            "summary": summary,
+            "findings": new_findings,
+            "detail_payload": detail_payload,
+            "evidence": evidence,
+        }
+    )
+
+
+def _introduces_new_concern(summary: str, current_text: str) -> bool:
+    tokens = ["access-control", "governance", "upload", "prompt", "misuse", "system-boundary", "deployment", "hardening", "media", "runtime"]
+    lowered = summary.lower()
+    return any(token in lowered and token not in current_text for token in tokens)
+
+
+def _lacks(text: str, keywords: list[str]) -> bool:
+    return not any(keyword in text for keyword in keywords)
+
+
+def _default_refs(repository_summary: RepositorySummary | None) -> list[str]:
+    if repository_summary is None:
+        return []
+    return [item.path for item in repository_summary.evidence_items[:3]]
+
+
+def _flatten_refs(critiques: list[DeliberationExchange]) -> list[str]:
+    refs: list[str] = []
+    for critique in critiques:
+        refs.extend(critique.evidence_refs)
+    return list(dict.fromkeys(refs))
+
+
+def _coerce_risk_tier(verdict: ExpertVerdict, risk_score: float) -> str:
+    if verdict.risk_tier.startswith("TIER_"):
+        if risk_score >= 0.85:
+            return "TIER_4"
+        if risk_score >= 0.65:
+            return "TIER_3"
+        if risk_score >= 0.4:
+            return "TIER_2"
+        return "TIER_1"
+    if risk_score >= 0.75:
+        return "HIGH"
+    if risk_score >= 0.45:
+        return "LIMITED"
+    return "MINIMAL"

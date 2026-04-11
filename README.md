@@ -401,7 +401,7 @@ Docker is supported, but the recommended quickstart path is the plain Python pat
 docker compose up --build
 ```
 
-The Docker defaults are aligned with the same no-key grading mode used by the README:
+The Docker defaults are aligned with the same no-key evaluation mode used by the README:
 
 - `SLM_BACKEND=mock`
 - `EXPERT_EXECUTION_MODE=rules`
@@ -423,7 +423,7 @@ GitHub Actions CI is included and runs the test suite on push and pull request.
 
 ## Security and Repository Hygiene
 
-- No live API key is required for the default grading flow.
+- No live API key is required for the default evaluation flow.
 - Secrets are redacted before JSON archives are written.
 - Generated reports are written under `data/reports/`.
 - `.env`, build artifacts, test caches, and generated reports are ignored.

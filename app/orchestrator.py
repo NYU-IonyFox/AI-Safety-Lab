@@ -7,6 +7,7 @@ from app.analyzers import summarize_repository
 from app.audit import persist_evaluation
 from app.council import synthesize_council
 from app.config import EXPERT_EXECUTION_MODE, TARGET_MAX_PROMPTS, TARGET_TIMEOUT_SEC
+from app.deliberation import run_deliberation
 from app.experts import Team1PolicyExpert, Team2RedTeamExpert, Team3RiskExpert
 from app.intake.submission_service import SubmissionError, cleanup_submission, resolve_submission
 from app.reporting import build_markdown_report
@@ -58,9 +59,20 @@ class SafetyLabOrchestrator:
                 }
             )
 
-            expert_verdicts = [expert.assess(enriched_request) for expert in self.experts]
-            expert_verdicts = self._attach_expert_metadata(expert_verdicts)
-            council_result = self._attach_council_metadata(synthesize_council(expert_verdicts), expert_verdicts)
+            initial_verdicts = [expert.assess(enriched_request) for expert in self.experts]
+            initial_verdicts = self._attach_expert_metadata(initial_verdicts)
+            initial_council = self._attach_council_metadata(synthesize_council(initial_verdicts), initial_verdicts)
+
+            deliberation_result = run_deliberation(enriched_request, initial_verdicts)
+            expert_verdicts = self._attach_expert_metadata(deliberation_result.revised_verdicts)
+            council_result = self._attach_council_metadata(synthesize_council(expert_verdicts), expert_verdicts).model_copy(
+                update={
+                    "initial_decision": initial_council.decision,
+                    "initial_decision_rule_triggered": initial_council.decision_rule_triggered,
+                    "deliberation_enabled": True,
+                    "deliberation_trace": deliberation_result.trace,
+                }
+            )
 
             evaluation_id, report_path, archive_path = persist_evaluation(
                 request=enriched_request,
