@@ -123,9 +123,39 @@ The repository now includes a repeated-run validation harness for benchmarking t
 Main assets:
 
 - benchmark manifests under `model_assets/benchmark_cases/`
+- single-run CLI: `scripts/run_benchmark_pack.py`
 - repeated-run CLI: `scripts/run_benchmark_pack_repeated.py`
 - interval and bootstrap metrics: `model_assets/benchmark_cases/metrics.py`
 - worst-case / long-tail reporting: `model_assets/benchmark_cases/reporting.py`
+- markdown summary renderer: `scripts/render_benchmark_summary.py`
+
+Single-run examples:
+
+Inspect a validation pack:
+
+```bash
+python scripts/run_benchmark_pack.py \
+  --pack model_assets/benchmark_cases/validation_benchmark_pack.json \
+  --mode inspect
+```
+
+Run one `behavior_only` case:
+
+```bash
+python scripts/run_benchmark_pack.py \
+  --pack model_assets/benchmark_cases/validation_benchmark_pack.json \
+  --mode evaluate \
+  --case-id behavior-only-secret-leak
+```
+
+Run one `hybrid` case:
+
+```bash
+python scripts/run_benchmark_pack.py \
+  --pack model_assets/benchmark_cases/validation_benchmark_pack.json \
+  --mode evaluate \
+  --case-id hybrid-discordant-repo-risk
+```
 
 Example:
 
@@ -144,6 +174,15 @@ The JSON output includes:
 - aggregated metrics with intervals
 - worst-case slice summaries
 - critical failure and instability summaries
+
+Render that JSON into markdown:
+
+```bash
+python scripts/render_benchmark_summary.py \
+  --input validation_report.json \
+  --output validation_report.md \
+  --title "Validation Harness Summary"
+```
 
 ---
 
