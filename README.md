@@ -1,9 +1,25 @@
 # UNICC AI Safety Lab
 
 **Council-of-Experts Repository Safety Evaluation System**  
-Built for the UNICC AI Safety Lab capstone.
+Built for the UNICC AI Safety Lab Capstone | NYU MASY GC-4100 | Spring 2026
+
+**Team**
+
+- **Andy (Zechao) Wang** — Project 1: Research and Platform Preparation — `zw4295@nyu.edu`
+- **Qianying Shao (Fox)** — Project 2: Fine-Tuning the SLM and Building the Council of Experts — `qs2266@nyu.edu`
+- **Qianmian Wang** — Project 3: Testing, User Experience, and Integration — `qw2544@nyu.edu`
 
 This repository is designed to be cloned and evaluated as a standalone submission. It accepts a target repository by GitHub URL or local path, analyzes the codebase, runs three distinct expert modules, and returns a structured `APPROVE` / `REVIEW` / `REJECT` council decision with a stakeholder-readable report.
+
+The system is aligned with the capstone memorandum's core product goals:
+
+- multi-module inference ensemble
+- council-of-experts architecture
+- auditable pre-deployment testing
+- transparent synthesis across independent perspectives
+- operation without dependence on closed black-box evaluation services
+
+Important scope note: the current public submission evaluates repository-based AI systems by inspecting their codebase, configuration, upload surfaces, model integrations, and deployment signals. In other words, the repository is treated as the pre-deployment artifact under review. This keeps the evaluation path auditable and reproducible on a clean machine while still matching the memo's broader objective of safety review before production deployment.
 
 ---
 
@@ -22,6 +38,54 @@ An AI safety evaluation platform with three layers:
 
 - **Grader-Facing UI and Reports**  
   Produces a structured JSON response, a markdown stakeholder report, a JSON archive, and a local Streamlit interface for non-technical review.
+
+---
+
+## Capstone Alignment
+
+This implementation maps directly to the three-project structure described in the UNICC capstone memo.
+
+### Project 1 — Research and Platform Preparation
+
+Implemented in this repository through:
+
+- FastAPI orchestration and API surface
+- repository intake pipeline
+- clean-machine install path
+- Docker and local runtime configuration
+- automated test and CI setup
+- deployment-facing documentation and runbooks
+
+### Project 2 — Fine-Tuning the SLM and Building the Council of Experts
+
+Implemented in this repository through:
+
+- three independent expert modules
+- council synthesis and explicit arbitration rules
+- repository analyzer and evidence extraction
+- prompt and schema assets under `model_assets/`
+- optional SLM hooks and local expert-runner interfaces
+
+### Project 3 — Testing, User Experience, and Integration
+
+Implemented in this repository through:
+
+- Streamlit stakeholder UI
+- markdown stakeholder report generation
+- VeriMedia evaluation flow
+- smoke-test and health-check routes
+- end-to-end integration across intake, experts, council, and artifacts
+
+### How This Submission Interprets the Memo
+
+The capstone memo emphasizes an on-prem, auditable, governance-aligned AI Safety Lab for evaluating AI systems before deployment. This repository operationalizes that goal as a reproducible repository-evaluation workflow:
+
+- **pre-deployment artifact**: the submitted AI repository
+- **independent perspectives**: three expert modules with different decision logic
+- **explicit critique/synthesis**: council arbitration with a named `decision_rule_triggered`
+- **auditability**: repository evidence, markdown reports, JSON archives, and redaction before persistence
+
+The repository also includes optional hooks for more advanced expert-model backends, but the default grading path intentionally runs in a deterministic rules/mock mode so evaluators can install and test it without extra credentials or cluster access.
 
 ---
 
