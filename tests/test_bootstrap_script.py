@@ -9,5 +9,7 @@ def test_bootstrap_script_defaults_to_qwen_and_lists_public_presets() -> None:
     assert 'MODEL_PRESET="${MODEL_PRESET:-qwen2.5-1.5b}"' in script
     assert "qwen2.5-1.5b" in script
     assert "qwen2.5-3b" in script
+    assert "qwen3.5-4b" in script
     assert "Qwen/Qwen2.5-1.5B-Instruct" in script
     assert "Qwen/Qwen2.5-3B-Instruct" in script
+    assert "Qwen/Qwen3.5-4B" in script

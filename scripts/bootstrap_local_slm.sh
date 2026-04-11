@@ -15,12 +15,14 @@ Usage: ./scripts/bootstrap_local_slm.sh [--preset <name>] [--start-demo] [--skip
 Presets:
   qwen2.5-1.5b        Default public Qwen preset with stronger JSON/output stability
   qwen2.5-3b          Stronger Qwen preset if your GPU has more headroom
+  qwen3.5-4b          Newer Qwen path; runner disables thinking where supported
   gemma3-270m-it      Lightweight Gemma path if you want the Google model family
   gemma3-4b-fp16      Stronger GPU preset for higher-quality council output
 
 Examples:
   ./scripts/bootstrap_local_slm.sh
   ./scripts/bootstrap_local_slm.sh --preset qwen2.5-3b
+  ./scripts/bootstrap_local_slm.sh --preset qwen3.5-4b
   ./scripts/bootstrap_local_slm.sh --preset gemma3-4b-fp16
   MODEL_PRESET=gemma3-4b-fp16 ./scripts/bootstrap_local_slm.sh --start-demo
 EOF
@@ -63,6 +65,14 @@ case "${MODEL_PRESET}" in
     ;;
   qwen2.5-3b)
     MODEL_ID="Qwen/Qwen2.5-3B-Instruct"
+    DEVICE="${LOCAL_HF_DEVICE:-auto}"
+    DTYPE="${LOCAL_HF_DTYPE:-auto}"
+    DEVICE_MAP="${LOCAL_HF_DEVICE_MAP:-auto}"
+    MAX_NEW_TOKENS="${LOCAL_HF_MAX_NEW_TOKENS:-288}"
+    MAX_INPUT_CHARS="${LOCAL_HF_MAX_INPUT_CHARS:-10000}"
+    ;;
+  qwen3.5-4b)
+    MODEL_ID="Qwen/Qwen3.5-4B"
     DEVICE="${LOCAL_HF_DEVICE:-auto}"
     DTYPE="${LOCAL_HF_DTYPE:-auto}"
     DEVICE_MAP="${LOCAL_HF_DEVICE_MAP:-auto}"

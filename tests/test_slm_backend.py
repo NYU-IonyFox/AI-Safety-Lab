@@ -94,7 +94,7 @@ def test_local_hf_runner_uses_device_map_auto_for_cuda(monkeypatch) -> None:
 
     kwargs = runner._resolve_model_load_kwargs(torch_dtype="fp16", runtime_device="cuda")
 
-    assert kwargs == {"torch_dtype": "fp16", "device_map": "auto"}
+    assert kwargs == {"dtype": "fp16", "device_map": "auto"}
 
 
 def test_local_hf_runner_resolves_real_runtime_device_after_device_map_load() -> None:
@@ -115,7 +115,7 @@ def test_local_hf_runner_falls_back_to_plain_tokenizer_when_no_chat_template() -
 
     class PlainTokenizer:
         def __call__(self, prompt: str, return_tensors: str, truncation: bool) -> dict[str, str]:
-            assert prompt == "user prompt"
+            assert prompt == "system prompt\n\nuser prompt"
             assert return_tensors == "pt"
             assert truncation is True
             return {"input_ids": "ok"}
@@ -148,6 +148,46 @@ def test_local_hf_runner_prefers_chat_template_when_available() -> None:
 
     result = runner._tokenize_prompt(ChatTokenizer(), "system prompt", "user prompt")
     assert result == {"input_ids": [1, 2, 3]}
+
+
+def test_local_hf_runner_disables_qwen35_thinking_when_supported() -> None:
+    runner = LocalHFRunner()
+    runner.model_id = "Qwen/Qwen3.5-4B"
+
+    class ChatTokenizer:
+        def apply_chat_template(self, messages, **kwargs):
+            assert messages == [
+                {"role": "system", "content": "system prompt"},
+                {"role": "user", "content": "user prompt"},
+            ]
+            assert kwargs["enable_thinking"] is False
+            return {"input_ids": [1, 2, 3]}
+
+    result = runner._tokenize_prompt(ChatTokenizer(), "system prompt", "user prompt")
+    assert result == {"input_ids": [1, 2, 3]}
+
+
+def test_local_hf_runner_parses_json_after_thinking_block() -> None:
+    runner = LocalHFRunner()
+
+    parsed = runner._parse_json_object(
+        "<think>\nstep by step\n</think>\n{\"risk_score\": 0.6, \"confidence\": 0.7}"
+    )
+
+    assert parsed == {"risk_score": 0.6, "confidence": 0.7}
+
+
+def test_local_hf_runner_invalid_json_error_includes_preview(monkeypatch) -> None:
+    runner = LocalHFRunner()
+    monkeypatch.setattr(runner, "_ensure_runtime", lambda: None)
+    monkeypatch.setattr(
+        runner,
+        "_generate_response_text",
+        lambda task, payload, system_prompt="", response_contract=None: "<think>reasoning</think> not-json response",
+    )
+
+    with pytest.raises(RuntimeError, match="Raw output preview: not-json response"):
+        runner.complete_json(task="team1_policy_expert", payload={"foo": "bar"})
 
 
 def test_local_hf_runner_clears_sampling_flags_for_greedy_decode(monkeypatch) -> None:
@@ -206,8 +246,9 @@ def test_local_hf_runner_clears_sampling_flags_for_greedy_decode(monkeypatch) ->
 
     runner.complete_json(task="team1_policy_expert", payload={"foo": "bar"})
 
-    generation_config = captured["generation_config"]
     assert captured["do_sample"] is False
-    assert generation_config.temperature is None
-    assert generation_config.top_p is None
-    assert generation_config.top_k is None
+    assert captured["max_new_tokens"] == runner.max_new_tokens
+    assert captured["pad_token_id"] == 1
+    assert runner._model.generation_config.temperature == 0.7
+    assert runner._model.generation_config.top_p == 0.9
+    assert runner._model.generation_config.top_k == 50

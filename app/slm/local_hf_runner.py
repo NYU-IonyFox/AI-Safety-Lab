@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from copy import deepcopy
+import re
 from typing import Any
 
 from app.slm.base import SLMRunner
@@ -49,7 +49,10 @@ class LocalHFRunner(SLMRunner):
         )
         parsed = self._parse_json_object(text)
         if parsed is None:
-            raise RuntimeError("Local HF model did not return a valid JSON object")
+            raise RuntimeError(
+                "Local HF model did not return a valid JSON object. "
+                f"Raw output preview: {self._preview_text(text)}"
+            )
         return self._normalize_result(parsed)
 
     def _ensure_runtime(self) -> None:
@@ -127,7 +130,7 @@ class LocalHFRunner(SLMRunner):
     def _resolve_model_load_kwargs(self, torch_dtype: Any | None, runtime_device: str) -> dict[str, Any]:
         model_kwargs: dict[str, Any] = {}
         if torch_dtype is not None:
-            model_kwargs["torch_dtype"] = torch_dtype
+            model_kwargs["dtype"] = torch_dtype
         if runtime_device == "cuda" and self.device_map_pref not in {"", "none", "off", "false"}:
             model_kwargs["device_map"] = "auto" if self.device_map_pref == "auto" else self.device_map_pref
         return model_kwargs
@@ -194,7 +197,6 @@ class LocalHFRunner(SLMRunner):
         contract_notes = str(response_contract.get("notes", "")).strip()
 
         user_prompt = (
-            f"{system_prompt.strip()}\n\n"
             "You are an AI safety evaluation backend.\n"
             "Return exactly one JSON object and no extra text.\n"
             f"Required keys: {required_keys}.\n"
@@ -219,21 +221,16 @@ class LocalHFRunner(SLMRunner):
             "eos_token_id": tokenizer.eos_token_id,
             "pad_token_id": tokenizer.pad_token_id or tokenizer.eos_token_id,
         }
-        generation_config = deepcopy(getattr(model, "generation_config", None))
-        if generation_config is not None:
-            if not do_sample:
-                # Suppress model-level sampling defaults that trigger noisy
-                # warnings during greedy decoding on small local checkpoints.
-                generation_config.temperature = None
-                generation_config.top_p = None
-                generation_config.top_k = None
-            generation_kwargs["generation_config"] = generation_config
-        if do_sample:
+        restore_config = self._configure_generation_defaults(model, do_sample)
+        if do_sample and getattr(model, "generation_config", None) is None:
             generation_kwargs["temperature"] = self.temperature
             generation_kwargs["top_p"] = self.top_p
 
-        with torch_mod.no_grad():
-            output_ids = model.generate(**generation_kwargs)
+        try:
+            with torch_mod.no_grad():
+                output_ids = model.generate(**generation_kwargs)
+        finally:
+            self._restore_generation_defaults(model, restore_config)
 
         completion_ids = output_ids[0][inputs["input_ids"].shape[1] :]
         return tokenizer.decode(completion_ids, skip_special_tokens=True).strip()
@@ -245,20 +242,24 @@ class LocalHFRunner(SLMRunner):
             if system_prompt:
                 messages.append({"role": "system", "content": system_prompt})
             messages.append({"role": "user", "content": user_prompt})
+            kwargs = {
+                "tokenize": True,
+                "add_generation_prompt": True,
+                "return_tensors": "pt",
+                "truncation": True,
+            }
+            if "qwen3.5" in self.model_id.lower():
+                kwargs["enable_thinking"] = False
             try:
-                return chat_template(
-                    messages,
-                    tokenize=True,
-                    add_generation_prompt=True,
-                    return_tensors="pt",
-                    truncation=True,
-                )
+                return chat_template(messages, **kwargs)
             except TypeError:
                 pass
-        return tokenizer(user_prompt, return_tensors="pt", truncation=True)
+
+        plain_prompt = user_prompt if not system_prompt else f"{system_prompt}\n\n{user_prompt}"
+        return tokenizer(plain_prompt, return_tensors="pt", truncation=True)
 
     def _parse_json_object(self, text: str) -> dict[str, Any] | None:
-        raw = text.strip()
+        raw = self._strip_reasoning_blocks(text).strip()
         if raw.startswith("```"):
             raw = raw.replace("```json", "").replace("```JSON", "").replace("```", "").strip()
 
@@ -282,6 +283,41 @@ class LocalHFRunner(SLMRunner):
                             return parsed
                         break
         return None
+
+    def _strip_reasoning_blocks(self, text: str) -> str:
+        return re.sub(r"<think>.*?</think>\s*", "", text, flags=re.DOTALL | re.IGNORECASE)
+
+    def _preview_text(self, text: str, max_chars: int = 240) -> str:
+        compact = " ".join(self._strip_reasoning_blocks(text).split())
+        if len(compact) <= max_chars:
+            return compact
+        return compact[: max_chars - 3] + "..."
+
+    def _configure_generation_defaults(self, model: Any, do_sample: bool) -> dict[str, Any]:
+        generation_config = getattr(model, "generation_config", None)
+        if generation_config is None:
+            return {}
+
+        restore = {
+            "temperature": getattr(generation_config, "temperature", None),
+            "top_p": getattr(generation_config, "top_p", None),
+            "top_k": getattr(generation_config, "top_k", None),
+        }
+        if do_sample:
+            generation_config.temperature = self.temperature
+            generation_config.top_p = self.top_p
+        else:
+            generation_config.temperature = None
+            generation_config.top_p = None
+            generation_config.top_k = None
+        return restore
+
+    def _restore_generation_defaults(self, model: Any, restore: dict[str, Any]) -> None:
+        generation_config = getattr(model, "generation_config", None)
+        if generation_config is None:
+            return
+        for key, value in restore.items():
+            setattr(generation_config, key, value)
 
     def _try_json_load(self, value: str) -> Any:
         try:

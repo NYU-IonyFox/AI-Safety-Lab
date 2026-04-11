@@ -249,6 +249,7 @@ The default preset is `Qwen/Qwen2.5-1.5B-Instruct`, which is a practical public 
 
 ```bash
 ./scripts/bootstrap_local_slm.sh --preset qwen2.5-3b
+./scripts/bootstrap_local_slm.sh --preset qwen3.5-4b
 ./scripts/bootstrap_local_slm.sh --preset gemma3-4b-fp16
 ./scripts/bootstrap_local_slm.sh --preset qwen2.5-1.5b
 ```
@@ -266,6 +267,7 @@ Other low-friction public presets:
 
 - `qwen2.5-1.5b` → `Qwen/Qwen2.5-1.5B-Instruct`
 - `qwen2.5-3b` → `Qwen/Qwen2.5-3B-Instruct`
+- `qwen3.5-4b` → `Qwen/Qwen3.5-4B` (the runner disables thinking when the chat template supports it)
 
 To bootstrap and immediately start both the backend and the Streamlit UI:
 
