@@ -97,6 +97,19 @@ def test_local_hf_runner_uses_device_map_auto_for_cuda(monkeypatch) -> None:
     assert kwargs == {"torch_dtype": "fp16", "device_map": "auto"}
 
 
+def test_local_hf_runner_resolves_real_runtime_device_after_device_map_load() -> None:
+    runner = LocalHFRunner()
+
+    class FakeModel:
+        device = "cuda:0"
+
+    assert runner._resolve_runtime_device_after_load(
+        FakeModel(),
+        runtime_device="cuda",
+        used_device_map=True,
+    ) == "cuda:0"
+
+
 def test_local_hf_runner_falls_back_to_plain_tokenizer_when_no_chat_template() -> None:
     runner = LocalHFRunner()
 

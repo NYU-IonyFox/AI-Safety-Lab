@@ -74,8 +74,11 @@ class LocalHFRunner(SLMRunner):
         model = auto_model.from_pretrained(self.model_id, **model_kwargs)
         if "device_map" not in model_kwargs:
             model.to(runtime_device)
-        else:
-            runtime_device = f"{runtime_device}:{model_kwargs['device_map']}"
+        runtime_device = self._resolve_runtime_device_after_load(
+            model,
+            runtime_device=runtime_device,
+            used_device_map="device_map" in model_kwargs,
+        )
         model.eval()
 
         if tokenizer.pad_token_id is None and tokenizer.eos_token_id is not None:
@@ -128,6 +131,29 @@ class LocalHFRunner(SLMRunner):
         if runtime_device == "cuda" and self.device_map_pref not in {"", "none", "off", "false"}:
             model_kwargs["device_map"] = "auto" if self.device_map_pref == "auto" else self.device_map_pref
         return model_kwargs
+
+    def _resolve_runtime_device_after_load(self, model: Any, *, runtime_device: str, used_device_map: bool) -> str:
+        if not used_device_map:
+            return runtime_device
+
+        model_device = getattr(model, "device", None)
+        if model_device is not None:
+            resolved = str(model_device)
+            if resolved and resolved != "meta":
+                return resolved
+
+        parameters = getattr(model, "parameters", None)
+        if callable(parameters):
+            try:
+                first_param = next(parameters())
+            except (StopIteration, TypeError):
+                first_param = None
+            if first_param is not None:
+                param_device = str(getattr(first_param, "device", "")).strip()
+                if param_device and param_device != "meta":
+                    return param_device
+
+        return runtime_device
 
     def describe(self) -> dict[str, str]:
         return {"backend": self.backend_name, "model_id": self.model_id}
