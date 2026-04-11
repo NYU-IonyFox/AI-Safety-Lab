@@ -127,6 +127,7 @@ def test_local_hf_runner_falls_back_to_plain_tokenizer_when_no_chat_template() -
 
 def test_local_hf_runner_prefers_chat_template_when_available() -> None:
     runner = LocalHFRunner()
+    runner.model_id = "Qwen/Qwen2.5-3B-Instruct"
 
     class ChatTokenizer:
         def apply_chat_template(

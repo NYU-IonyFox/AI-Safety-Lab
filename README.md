@@ -245,14 +245,31 @@ If you want a one-command local-HF setup that installs dependencies, preloads th
 ./scripts/bootstrap_local_slm.sh
 ```
 
-The default preset is `Qwen/Qwen2.5-1.5B-Instruct`, which is a practical public mid-size bring-up target for a clean machine. You can keep the same flow and switch to stronger or alternative models later:
+The default preset is `Qwen/Qwen3.5-4B`. This is now the recommended standalone local council model for the project and the default path for GPU-backed bring-up.
+
+Recommended local SLM flow:
 
 ```bash
-./scripts/bootstrap_local_slm.sh --preset qwen2.5-3b
-./scripts/bootstrap_local_slm.sh --preset qwen3.5-4b
-./scripts/bootstrap_local_slm.sh --preset gemma3-4b-fp16
-./scripts/bootstrap_local_slm.sh --preset qwen2.5-1.5b
+./scripts/bootstrap_local_slm.sh
+source ./.runtime.local-hf.env
+./scripts/start_demo.sh
 ```
+
+Other larger presets are still available if you want a different tradeoff:
+
+```bash
+./scripts/bootstrap_local_slm.sh --preset qwen3.5-4b
+./scripts/bootstrap_local_slm.sh --preset qwen2.5-3b
+./scripts/bootstrap_local_slm.sh --preset gemma3-4b-fp16
+```
+
+The default `qwen3.5-4b` preset writes a local runtime env with:
+
+- `LOCAL_HF_MODEL_ID=Qwen/Qwen3.5-4B`
+- `LOCAL_HF_DEVICE=auto`
+- `LOCAL_HF_DTYPE=auto`
+- `LOCAL_HF_DEVICE_MAP=auto`
+- `LOCAL_HF_MAX_NEW_TOKENS=448`
 
 The `gemma3-4b-fp16` preset is tuned for a local CUDA machine:
 
@@ -263,11 +280,13 @@ The `gemma3-4b-fp16` preset is tuned for a local CUDA machine:
 - `LOCAL_HF_TEMPERATURE=0.0`
 - `LOCAL_HF_TOP_P=1.0`
 
-Other low-friction public presets:
+Available larger presets:
 
-- `qwen2.5-1.5b` → `Qwen/Qwen2.5-1.5B-Instruct`
-- `qwen2.5-3b` → `Qwen/Qwen2.5-3B-Instruct`
 - `qwen3.5-4b` → `Qwen/Qwen3.5-4B` (the runner disables thinking when the chat template supports it)
+- `qwen2.5-3b` → `Qwen/Qwen2.5-3B-Instruct`
+- `gemma3-4b-fp16` → `google/gemma-3-4b-it` on CUDA FP16
+
+Smaller bootstrap presets were intentionally removed so the default local path stays focused on stronger council models.
 
 To bootstrap and immediately start both the backend and the Streamlit UI:
 

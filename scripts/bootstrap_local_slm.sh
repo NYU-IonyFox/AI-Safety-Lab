@@ -4,7 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PYTHON_BIN="${PYTHON_BIN:-python3}"
-MODEL_PRESET="${MODEL_PRESET:-qwen2.5-1.5b}"
+MODEL_PRESET="${MODEL_PRESET:-qwen3.5-4b}"
 START_DEMO=0
 SKIP_SMOKE_TEST=0
 
@@ -13,16 +13,14 @@ usage() {
 Usage: ./scripts/bootstrap_local_slm.sh [--preset <name>] [--start-demo] [--skip-smoke-test]
 
 Presets:
-  qwen2.5-1.5b        Default public Qwen preset with stronger JSON/output stability
-  qwen2.5-3b          Stronger Qwen preset if your GPU has more headroom
-  qwen3.5-4b          Newer Qwen path; runner disables thinking where supported
-  gemma3-270m-it      Lightweight Gemma path if you want the Google model family
+  qwen3.5-4b          Default public Qwen preset; runner disables thinking where supported
+  qwen2.5-3b          Fallback Qwen preset if you want a slightly smaller model
   gemma3-4b-fp16      Stronger GPU preset for higher-quality council output
 
 Examples:
   ./scripts/bootstrap_local_slm.sh
-  ./scripts/bootstrap_local_slm.sh --preset qwen2.5-3b
   ./scripts/bootstrap_local_slm.sh --preset qwen3.5-4b
+  ./scripts/bootstrap_local_slm.sh --preset qwen2.5-3b
   ./scripts/bootstrap_local_slm.sh --preset gemma3-4b-fp16
   MODEL_PRESET=gemma3-4b-fp16 ./scripts/bootstrap_local_slm.sh --start-demo
 EOF
@@ -55,14 +53,6 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "${MODEL_PRESET}" in
-  qwen2.5-1.5b)
-    MODEL_ID="Qwen/Qwen2.5-1.5B-Instruct"
-    DEVICE="${LOCAL_HF_DEVICE:-auto}"
-    DTYPE="${LOCAL_HF_DTYPE:-auto}"
-    DEVICE_MAP="${LOCAL_HF_DEVICE_MAP:-none}"
-    MAX_NEW_TOKENS="${LOCAL_HF_MAX_NEW_TOKENS:-256}"
-    MAX_INPUT_CHARS="${LOCAL_HF_MAX_INPUT_CHARS:-8000}"
-    ;;
   qwen2.5-3b)
     MODEL_ID="Qwen/Qwen2.5-3B-Instruct"
     DEVICE="${LOCAL_HF_DEVICE:-auto}"
@@ -76,16 +66,8 @@ case "${MODEL_PRESET}" in
     DEVICE="${LOCAL_HF_DEVICE:-auto}"
     DTYPE="${LOCAL_HF_DTYPE:-auto}"
     DEVICE_MAP="${LOCAL_HF_DEVICE_MAP:-auto}"
-    MAX_NEW_TOKENS="${LOCAL_HF_MAX_NEW_TOKENS:-288}"
+    MAX_NEW_TOKENS="${LOCAL_HF_MAX_NEW_TOKENS:-448}"
     MAX_INPUT_CHARS="${LOCAL_HF_MAX_INPUT_CHARS:-10000}"
-    ;;
-  gemma3-270m-it)
-    MODEL_ID="google/gemma-3-270m-it"
-    DEVICE="cuda"
-    DTYPE="float16"
-    DEVICE_MAP="auto"
-    MAX_NEW_TOKENS="${LOCAL_HF_MAX_NEW_TOKENS:-256}"
-    MAX_INPUT_CHARS="${LOCAL_HF_MAX_INPUT_CHARS:-8000}"
     ;;
   gemma3-4b-fp16)
     MODEL_ID="google/gemma-3-4b-it"
