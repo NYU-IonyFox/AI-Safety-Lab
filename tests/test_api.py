@@ -104,6 +104,35 @@ def test_health() -> None:
 
 
 
+def test_root_describes_api_entrypoints() -> None:
+    client = TestClient(app)
+    response = client.get("/")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["docs_url"] == "/docs"
+    assert body["smoke_test_url"] == "/smoke-test"
+    assert body["evaluation_endpoint"] == "/v1/evaluations"
+
+
+
+def test_smoke_test_initializes_all_three_experts() -> None:
+    client = TestClient(app)
+    response = client.get("/smoke-test")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["smoke_test"] == "pass"
+    assert body["llm_backend"] == "rules"
+    assert set(body["experts"]) == {
+        "policy_and_compliance",
+        "adversarial_misuse",
+        "system_and_deployment",
+    }
+    assert all(item["status"] == "ok" for item in body["experts"].values())
+    assert body["council_preview"]["decision_rule_triggered"]
+
+
+
 def test_local_repo_submission_returns_structured_report(tmp_path: Path) -> None:
     repo_dir = tmp_path / "verimedia-mini"
     _build_demo_repo(repo_dir)

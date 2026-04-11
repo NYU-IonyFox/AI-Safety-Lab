@@ -1,48 +1,64 @@
-# AI Safety Lab
+# UNICC AI Safety Lab
 
-Integrated UNICC submission for repository-based AI safety evaluation.
+**Council-of-Experts Repository Safety Evaluation System**  
+Built for the UNICC AI Safety Lab capstone.
 
-This repository is intended to be submitted and cloned as a standalone project. It accepts a repository by GitHub URL or local path, analyzes the codebase, runs three distinct expert modules, and returns an explicit `APPROVE` / `REVIEW` / `REJECT` council verdict with a readable report.
+This repository is designed to be cloned and evaluated as a standalone submission. It accepts a target repository by GitHub URL or local path, analyzes the codebase, runs three distinct expert modules, and returns a structured `APPROVE` / `REVIEW` / `REJECT` council decision with a stakeholder-readable report.
 
-## What the evaluator should be able to do
+---
 
-1. Clone this repository on a clean machine.
-2. Install it with standard Python tooling.
-3. Launch the backend and frontend without adding API keys.
-4. Submit VeriMedia dynamically from GitHub.
-5. Review three independent expert outputs plus an explicit arbitration rule.
+## What We Built
 
-## Default grading path
+An AI safety evaluation platform with three layers:
 
-The default path is intentionally safe for offline or no-key evaluation:
+- **Repository Intake and Analysis**  
+  Accepts a GitHub URL or local path, clones or resolves the repository, then extracts framework, upload, authentication, dependency, and model-integration signals.
 
-- `EXPERT_EXECUTION_MODE=rules`
-- no target model endpoint required
-- no Anthropic/OpenAI key required
-- GitHub URL intake enabled out of the box
+- **Council of Experts**  
+  Runs three independent expert modules:
+  - **Policy & Compliance**: governance controls, accountability, access control, and policy exposure
+  - **Adversarial Misuse**: abuse paths, prompt-injection surface, hostile uploads, and misuse likelihood
+  - **System & Deployment**: architecture, external-model coupling, deployment exposure, and operational safeguards
 
-## Prerequisites
+- **Grader-Facing UI and Reports**  
+  Produces a structured JSON response, a markdown stakeholder report, a JSON archive, and a local Streamlit interface for non-technical review.
+
+---
+
+## Clean-Machine Quick Start
+
+### Prerequisites
 
 - Python `3.10+`
 - `git`
-- network access to `github.com` for GitHub URL intake
+- Network access to `github.com` for GitHub URL intake
 
-## Quickstart
+No live API key is required for the default grading path.
+
+### Step 1 — Clone and install
 
 ```bash
 git clone <YOUR_REPOSITORY_URL>
 cd ai-safety-lab
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
 python -m pip install --upgrade pip
 python -m pip install -e .
 ```
 
-## Start the backend
+### Step 2 — Start the backend
 
 ```bash
-uvicorn app.main:app --port 8080
+uvicorn app.main:app --host 0.0.0.0 --port 8080
 ```
+
+Expected startup output includes:
+
+```text
+Application startup complete.
+```
+
+### Step 3 — Verify all three expert modules initialize correctly
 
 Health check:
 
@@ -56,44 +72,59 @@ Expected response:
 {"status":"ok"}
 ```
 
-## Start the frontend
+Smoke test:
 
-Open a second terminal in the same folder, activate the same virtual environment, then run:
+```bash
+curl http://127.0.0.1:8080/smoke-test
+```
+
+Expected response shape:
+
+```json
+{
+  "smoke_test": "pass",
+  "llm_backend": "rules",
+  "experts": {
+    "policy_and_compliance": {"status": "ok"},
+    "adversarial_misuse": {"status": "ok"},
+    "system_and_deployment": {"status": "ok"}
+  },
+  "council_preview": {
+    "decision": "APPROVE",
+    "decision_rule_triggered": "baseline_approve"
+  }
+}
+```
+
+### Step 4 — Start the grader-facing frontend
+
+Open a second terminal in the same folder and activate the same virtual environment:
 
 ```bash
 streamlit run frontend/streamlit_app.py
 ```
 
-The UI defaults to GitHub URL intake for VeriMedia.
+Then open the local URL shown by Streamlit, typically:
 
-## Quickest end-to-end demo
-
-If you want one command to start both backend and frontend:
-
-```bash
-./scripts/start_demo.sh
+```text
+http://127.0.0.1:8501
 ```
 
-This prints:
+### Step 5 — Submit VeriMedia
 
-- backend: `http://127.0.0.1:8080/health`
-- frontend: `http://127.0.0.1:8501`
-
-## Submit VeriMedia
-
-### Option A: through the frontend
-
-Use the default form values:
+The frontend defaults to the standard test case:
 
 - `Source type`: `github_url`
 - `GitHub URL`: `https://github.com/FlashCarrot/VeriMedia`
 - `Target name`: `VeriMedia`
 
-Leave the advanced target endpoint fields blank for the no-key grading path.
+Leave advanced target-execution fields blank for the default no-key grading path.
 
-### Option B: through the API
+---
 
-The included example payload already points to VeriMedia on GitHub:
+## Evaluating VeriMedia
+
+### Option 1 — Submit via GitHub URL
 
 ```bash
 curl -sS -X POST "http://127.0.0.1:8080/v1/evaluations" \
@@ -101,17 +132,7 @@ curl -sS -X POST "http://127.0.0.1:8080/v1/evaluations" \
   --data-binary @examples/evaluation_request.json
 ```
 
-Equivalent helper script:
-
-```bash
-./scripts/curl_eval.sh
-```
-
-## Local-path intake
-
-If you already have VeriMedia or another target repo on disk, use `examples/evaluation_request_local.json` or switch the Streamlit form to `local_path`.
-
-Example:
+### Option 2 — Submit via local path
 
 ```bash
 curl -sS -X POST "http://127.0.0.1:8080/v1/evaluations" \
@@ -119,67 +140,228 @@ curl -sS -X POST "http://127.0.0.1:8080/v1/evaluations" \
   --data-binary @examples/evaluation_request_local.json
 ```
 
-## What the output contains
-
-Each evaluation returns:
-
-- `repository_summary`
-- `experts[]`
-- `council_result`
-- `decision`
-- `report_path`
-- `archive_path`
-
-### Three expert modules
-
-1. `Policy & Compliance`
-   reviews governance controls, accountability, and policy exposure.
-2. `Adversarial Misuse`
-   reviews abuse paths, misuse likelihood, and attack surface.
-3. `System & Deployment`
-   reviews architecture, deployment exposure, and operational safeguards.
-
-### Council synthesis
-
-The council does not do simple majority voting. It applies explicit arbitration rules such as:
-
-- critical fail-closed rejection
-- multi-expert high-risk rejection
-- expert-failure review
-- disagreement review
-- system-risk review
-
-The returned `council_result` includes `decision_rule_triggered` so the evaluator can see exactly why the verdict was reached.
-
-## What a strong VeriMedia evaluation should surface
-
-When evaluating VeriMedia, the report should reference repository evidence such as:
-
-- Flask architecture and route handling
-- file-upload entry points
-- GPT-4o or other external model usage
-- speech or media transcription flow
-- lack of a visible authentication layer
-- development secret-key fallback if present
-
-These signals are derived from the submitted repository at runtime rather than a hardcoded demo path.
-
-## Tests
-
-Install dev dependencies if you want to run the test suite:
+### Option 3 — Use the helper script
 
 ```bash
-python -m pip install -e ".[dev]"
-pytest
+./scripts/curl_eval.sh
 ```
+
+### Option 4 — One-command demo launch
+
+```bash
+./scripts/start_demo.sh
+```
+
+This starts:
+
+- backend: `http://127.0.0.1:8080`
+- frontend: `http://127.0.0.1:8501`
+
+---
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/` | GET | API entrypoint summary and links |
+| `/health` | GET | Basic health check |
+| `/smoke-test` | GET | Initializes all three expert modules and returns a readiness preview |
+| `/v1/evaluations` | POST | Full repository evaluation |
+| `/docs` | GET | Swagger UI |
+
+---
+
+## Example Output Shape
+
+An evaluation response contains:
+
+```json
+{
+  "evaluation_id": "189161fa-a3b3-4ce0-b5de-3a33a4074410",
+  "decision": "REJECT",
+  "repository_summary": {
+    "framework": "Flask",
+    "detected_signals": [
+      "Flask architecture detected",
+      "GPT-4o backend usage detected",
+      "Audio/video transcription pipeline detected",
+      "File upload surface detected",
+      "Lack of explicit authentication layer detected"
+    ],
+    "evidence_items": [
+      {
+        "path": "app.py:301",
+        "signal": "Upload route detected",
+        "why_it_matters": "Public upload entry points expand the attack surface for malicious files, prompt injection, and unsafe media handling."
+      }
+    ]
+  },
+  "experts": [
+    {
+      "expert_name": "team3_risk_expert",
+      "summary": "VeriMedia: system-risk review found an unauthenticated upload pipeline connected to external AI services, so deployment review is required."
+    }
+  ],
+  "council_result": {
+    "decision": "REJECT",
+    "decision_rule_triggered": "multi_expert_high_risk"
+  },
+  "report_path": "data/reports/<evaluation-id>.md",
+  "archive_path": "data/reports/<evaluation-id>.json"
+}
+```
+
+---
+
+## What a Strong VeriMedia Evaluation Should Surface
+
+When evaluating `https://github.com/FlashCarrot/VeriMedia`, the output should reference repository-specific evidence such as:
+
+- Flask route architecture
+- file-upload entry points
+- GPT-4o usage
+- speech or media transcription flow
+- lack of an explicit authentication layer
+- development secret-key fallback if present
+
+In the current implementation, these are surfaced as:
+
+- `repository_summary.detected_signals`
+- `repository_summary.evidence_items`
+- expert-specific findings
+- `council_result.decision_rule_triggered`
+
+---
+
+## System Architecture
+
+```text
+GitHub URL / Local Path Submission
+                ↓
+        Repository Intake
+     (clone / resolve / analyze)
+                ↓
+    Repository Summary + Evidence
+                ↓
+┌───────────────────────────────────────┐
+│         Council of Experts            │
+│                                       │
+│  Policy & Compliance                  │
+│  Adversarial Misuse                   │
+│  System & Deployment                  │
+└───────────────────────────────────────┘
+                ↓
+      Rule-Based Council Synthesis
+   (explicit decision_rule_triggered)
+                ↓
+   Final APPROVE / REVIEW / REJECT
+                ↓
+ Markdown Report + JSON Archive + UI
+```
+
+### Council behavior
+
+The council does not do simple majority voting. It applies explicit rule branches such as:
+
+- `critical_fail_closed`
+- `policy_and_misuse_alignment`
+- `multi_expert_high_risk`
+- `system_risk_review`
+- `expert_failure_review`
+- `expert_disagreement_review`
+- `baseline_approve`
+
+---
+
+## Project Structure
+
+```text
+ai-safety-lab/
+├── app/
+│   ├── analyzers/      # Repository signal extraction
+│   ├── experts/        # Three expert modules
+│   ├── intake/         # GitHub/local-path submission handling
+│   ├── reporting/      # Markdown report generation
+│   ├── slm/            # Optional expert-model runner backends
+│   ├── targets/        # Optional target-execution adapters
+│   ├── council.py      # Final arbitration logic
+│   ├── main.py         # FastAPI entrypoint
+│   └── orchestrator.py # End-to-end evaluation pipeline
+├── frontend/           # Streamlit grader-facing UI
+├── examples/           # Example evaluation payloads
+├── model_assets/       # Prompt and schema assets
+├── scripts/            # Demo and evaluation helpers
+├── services/           # Optional local service shims
+├── tests/              # Automated tests
+└── data/               # Generated reports and audit artifacts
+```
+
+---
+
+## Configuration
+
+The default grading path is intentionally safe:
+
+- `SLM_BACKEND=mock`
+- `EXPERT_EXECUTION_MODE=rules`
+- `TEAM3_REQUIRE_LOCAL_SLM=false`
+
+Optional environment variables are documented in `.env.example`.
+
+These are only needed if you want to enable optional expert-model or target-model integrations:
+
+- `LOCAL_SLM_ENDPOINT`
+- `LOCAL_SLM_API_KEY`
+- `TARGET_ENDPOINT`
+- `TARGET_MODEL`
+- `TARGET_API_KEY`
+
+---
 
 ## Docker
 
-Docker assets are kept for development, but the recommended grading path is the plain Python quickstart above. The Python path is the simplest and most reliable path for clean-machine evaluation.
+Docker is supported, but the recommended evaluator path is the plain Python quick start above.
 
-## Security and repository hygiene
+```bash
+docker compose up --build
+```
 
-- no live API key is required for the default grading flow
-- secrets are redacted before the JSON archive is written
-- generated reports are written under `data/reports/`
-- `.env` is ignored and not required for the default run
+The Docker defaults are aligned with the same no-key grading mode used by the README:
+
+- `SLM_BACKEND=mock`
+- `EXPERT_EXECUTION_MODE=rules`
+
+---
+
+## Tests and CI
+
+Run tests locally:
+
+```bash
+python -m pip install -e ".[dev]"
+pytest -q
+```
+
+GitHub Actions CI is included and runs the test suite on push and pull request.
+
+---
+
+## Security and Repository Hygiene
+
+- No live API key is required for the default grading flow.
+- Secrets are redacted before JSON archives are written.
+- Generated reports are written under `data/reports/`.
+- `.env`, build artifacts, test caches, and generated reports are ignored.
+
+---
+
+## Tech Stack
+
+| Component | Technology |
+|---|---|
+| API | FastAPI |
+| Validation | Pydantic v2 |
+| HTTP client | httpx |
+| Frontend | Streamlit |
+| Packaging | setuptools / pyproject |
+| CI | GitHub Actions |
