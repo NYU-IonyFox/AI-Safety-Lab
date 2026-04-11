@@ -134,4 +134,4 @@ These choices are reasonable engineering decisions, but they are not directly va
 - whether the current expert taxonomy is better than the original `proj-2` taxonomy for this product
 - which evidence-routing policy produces the most useful deliberation outcomes
 
-Those questions require benchmark design and measurement inside this project. See [VALIDATION_PLAN.md](VALIDATION_PLAN.md).
+Those questions require benchmark design and measurement inside this project. See [BENCHMARK_VALIDATION_PLAN.md](BENCHMARK_VALIDATION_PLAN.md).

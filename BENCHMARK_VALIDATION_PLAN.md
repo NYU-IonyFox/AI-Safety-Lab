@@ -1,115 +1,207 @@
-# Benchmark Validation Plan
+# Benchmark Validation Guide
 
-This document defines how to empirically validate the major project-specific design choices in `AI-Safety-Lab` that are not settled by external standards alone.
+This guide is for people who want to **evaluate, tune, or compare** `AI-Safety-Lab` using the built-in benchmark harness. It explains:
 
-## Objective
+- what the benchmark harness is for
+- which files and scripts to use
+- how to compare a new configuration against a baseline
+- how to interpret repeated-run metrics, intervals, and worst-case slices
+- which design choices still need empirical calibration
 
-Validate whether the current `repository_only`, `behavior_only`, and `hybrid` decision logic is better calibrated, more useful, and more reproducible than plausible alternatives.
+This document is intentionally written for operators and contributors, not as a research memo.
 
-## Research Questions
+## What This Guide Is For
 
-1. Are the current `repository_channel_score` and `behavior_channel_score` weights appropriate?
-2. Are the current hybrid arbitration thresholds correctly calibrated?
-3. Are the multilingual `uncertainty_flag` thresholds appropriately conservative?
-4. Is the current expert taxonomy better than a more direct `proj-2` taxonomy mapping?
-5. Does the current deliberation evidence-routing improve decision quality over simpler routing strategies?
+Use the benchmark harness when you need to answer questions like:
 
-## Benchmark Design Principles
+- Did a threshold change actually improve decisions?
+- Is `hybrid` better than `repository_only` or `behavior_only` on the cases we care about?
+- Is a new model or prompt more stable across repeated runs?
+- Did multilingual handling become more conservative or just noisier?
+- Did a new routing rule improve long-tail safety, or only average score?
 
-- Use paired cases whenever possible.
-- Separate static-risk signals from runtime-risk signals so the council can be stress-tested under disagreement.
-- Annotate ground truth at the case level before tuning thresholds.
-- Measure both correctness and governance behavior, not just average score.
-- Start with a tractable benchmark size, then expand once the harness is stable.
-- Compare against at least one meaningful baseline instead of judging the current system in isolation.
-- Prefer interval- and distribution-based decisions over single-run point estimates.
-- Track long-tail failures separately from average performance.
+The goal is not to celebrate one high score. The goal is to make a **defensible comparison** between configurations.
 
-Recommended starting size:
+## What Ships in the Repository
 
-- 12 to 18 `repository_only` cases
-- 12 to 18 `behavior_only` cases
-- 12 to 18 `hybrid` cases
-- ensure at least one-third of the behavior and hybrid cases include multilingual or code-switched evidence
+Main files:
 
-## Baselines and Comparison Targets
+- benchmark manifests: `model_assets/benchmark_cases/`
+- single-run CLI: `scripts/run_benchmark_pack.py`
+- repeated-run CLI: `scripts/run_benchmark_pack_repeated.py`
+- metrics and interval calculation: `model_assets/benchmark_cases/metrics.py`
+- worst-case and long-tail summaries: `model_assets/benchmark_cases/reporting.py`
+- markdown renderer for repeated-run JSON: `scripts/render_benchmark_summary.py`
 
-Every benchmark study should compare the current configuration against at least one baseline:
+Default benchmark packs:
 
-- previous tagged release or prior commit
-- repository-only council without behavior fusion
-- behavior-only council without repository fusion
-- simplified council baseline without critique or with shared evidence refs
+- `public_repo_benchmark_pack.json`
+  Repository-only public repo pack
+- `validation_benchmark_pack.json`
+  Mixed pack covering `repository_only`, `behavior_only`, and `hybrid`
 
-The purpose is to answer a systems question:
+## Quick Start
 
-- is the current design better than a simpler or earlier alternative?
-- where does it improve?
-- where does it regress?
+Inspect a pack:
 
-Avoid interpreting a single benchmark score in isolation when no baseline is present.
+```bash
+python scripts/run_benchmark_pack.py \
+  --pack model_assets/benchmark_cases/validation_benchmark_pack.json \
+  --mode inspect
+```
 
-## Repeated Testing and Statistical Reliability
+Run one benchmark case:
 
-Single-run scores are too fragile for model-based systems. The same benchmark should be re-run multiple times whenever the model path, prompt path, or stochastic generation path can vary.
+```bash
+python scripts/run_benchmark_pack.py \
+  --pack model_assets/benchmark_cases/validation_benchmark_pack.json \
+  --mode evaluate \
+  --case-id hybrid-discordant-repo-risk
+```
+
+Run repeated evaluation and save JSON:
+
+```bash
+python scripts/run_benchmark_pack_repeated.py \
+  --pack model_assets/benchmark_cases/validation_benchmark_pack.json \
+  --repeats 10 \
+  --baseline-id current \
+  --interval-method bootstrap \
+  --json > validation_report.json
+```
+
+Render a markdown summary:
+
+```bash
+python scripts/render_benchmark_summary.py \
+  --input validation_report.json \
+  --output validation_report.md \
+  --title "Validation Harness Summary"
+```
+
+## How To Read the Benchmark Packs
+
+Each case can represent one of three modes:
+
+- `repository_only`
+- `behavior_only`
+- `hybrid`
+
+Useful fields:
+
+- `expected_decision`
+  The current gold label for the case
+- `baseline_metadata`
+  The comparison target or prior expectation
+- `slice_labels`
+  The risk slices the case belongs to, for example upload risk, multilingual uncertainty, or hybrid disagreement
+- `transcript`
+  The behavior evidence for `behavior_only` and `hybrid`
+
+Treat the manifest as a labeled test set, not as a demo pack.
+
+## How To Compare Against a Baseline
+
+Do not judge a configuration in isolation. Always compare it to at least one baseline such as:
+
+- a previous tagged release
+- the current `main` configuration
+- `repository_only` without behavior fusion
+- `behavior_only` without repository fusion
+- a simpler council configuration
+
+The baseline question should always be explicit:
+
+- better than what?
+- on which slices?
+- by how much?
+- with what tradeoff?
+
+If there is no baseline, a single benchmark score is easy to over-interpret.
+
+## Why Repeated Runs Matter
+
+Model-based systems have variance. One run can be unusually high or unusually low.
 
 Recommended protocol:
 
-- run each benchmark configuration at least `5` times for smoke-level studies
-- run each benchmark configuration `10` to `30` times for final calibration studies
-- keep benchmark labels frozen while repeating runs
+- use at least `5` repeats for smoke-level checks
+- use `10` to `30` repeats for final tuning work
+- keep labels frozen during repeated runs
 - store every run, not only the mean
 
-Use repeated evaluation to estimate:
+The repeated-run harness records:
 
-- mean decision accuracy
-- run-to-run variance
-- false approve variance
-- false reject variance
-- review-rate variance
-- expert disagreement variance
+- `run_id`
+- `seed`
+- `baseline_id`
+- raw results for each case
 
-Where appropriate, bootstrap the repeated results to estimate confidence intervals for the main metrics. The exact term matters less than the operational goal: do not treat one lucky run as evidence of a stable setting.
+This lets you measure both performance and stability.
 
-## Decision Criteria Based on Intervals, Not Single Scores
+## What Metrics Matter Most
 
-Production-facing decisions should be based on intervals or distributions rather than one point score.
+The harness reports these core metrics:
 
-Recommended rule:
+- `accuracy`
+- `false_approve_rate`
+- `false_reject_rate`
+- `review_rate`
+- `coverage_rate`
+- `error_rate`
 
-- prefer mean plus confidence interval, or median plus percentile band
-- accept a configuration only when its interval is comfortably above the alternative or comfortably below the target risk threshold
-- send a configuration to further review when intervals overlap heavily or flip sign across runs
+For safety-sensitive tuning, the most important numbers are usually:
+
+- unsafe false approves
+- review inflation
+- instability across repeated runs
+- worst-case slices
+
+Do not optimize only for average accuracy.
+
+## Use Intervals, Not Single Scores
+
+Single scores are too brittle for tuning decisions.
+
+Prefer:
+
+- mean plus confidence interval
+- or mean plus percentile band
+
+Accept a new setting only when its interval is clearly better than the baseline on the metric that matters.
 
 Examples:
 
-- if a candidate configuration has higher average accuracy but its unsafe false-approve interval overlaps the baseline, the gain is not yet persuasive
-- if a threshold reduces average risk but produces unstable `REVIEW` spikes across repeated runs, it should not be treated as validated
+- if a candidate improves average accuracy but its unsafe false-approve interval overlaps the baseline, the gain is weak
+- if a threshold lowers average risk but creates unstable `REVIEW` spikes, it is not yet validated
 
-This matters especially for council thresholds and uncertainty handling, where brittle point estimates can hide unstable boundary behavior.
+This matters most for:
+
+- `repository_channel_score` and `behavior_channel_score`
+- hybrid reject/review thresholds
+- multilingual uncertainty thresholds
 
 ## Long-Tail and Worst-Case Analysis
 
-Average performance is necessary but not sufficient for safety evaluation.
+Average performance is necessary, but it is not enough for safety work.
 
-For high-risk metrics, explicitly track:
+Always inspect:
 
-- worst-case behavior on benchmark slices
-- failure rate on critical cases
-- extreme outliers in unsafe false approvals
-- long-tail multilingual failures
-- rare but severe prompt-injection or secret-leakage misses
+- worst-case slices
+- critical failures
+- most unstable cases
+- rare multilingual misses
+- rare false approves on high-risk cases
 
-At minimum, report these alongside mean metrics:
+The worst-case report is there to answer:
 
-- worst-case slice accuracy
-- critical-case false approve count
-- percentile bands for unsafe-case performance
-- top-k most severe benchmark misses with rationale
+- Where does the system fail badly?
+- Which slices are fragile?
+- Which cases flip across runs?
 
-The goal is to avoid approving a system that performs well on average but fails badly on rare high-consequence cases.
+If the average looks good but the worst-case report is ugly, the configuration is not ready.
 
-## Benchmark Suite
+## Suggested Benchmark Mix
 
 ### Suite A — Repository Channel Cases
 
@@ -122,7 +214,7 @@ Case types:
 - repository with risky model integrations but strong containment
 - repository with misleading README or config claims
 
-Ground-truth labels:
+Recommended labels:
 - `APPROVE`, `REVIEW`, `REJECT`
 - primary failure mode
 - evidence sufficiency score
@@ -140,7 +232,7 @@ Case types:
 - multilingual ambiguous behavior
 - low-confidence translation or language-mismatch cases
 
-Ground-truth labels:
+Recommended labels:
 - `APPROVE`, `REVIEW`, `REJECT`
 - uncertainty required: yes/no
 - key behavior failure mode
@@ -157,17 +249,39 @@ Case types:
 - safe repo + safe runtime behavior
 - multilingual ambiguous behavior layered on top of either safe or unsafe repositories
 
-Ground-truth labels:
+Recommended labels:
 - expected final decision
 - expected decision rationale
 - expected dominant channel
 
-## Experiments
+Recommended starting size:
+
+- 12 to 18 `repository_only` cases
+- 12 to 18 `behavior_only` cases
+- 12 to 18 `hybrid` cases
+- at least one-third of the behavior and hybrid cases should include multilingual or code-switched evidence
+
+## What Still Needs Calibration
+
+These are the main project-specific choices that should be validated with the harness instead of assumed correct:
+
+- `repository_channel_score` vs `behavior_channel_score` weights
+- `hybrid_dual_channel_reject` and review thresholds
+- multilingual `uncertainty_flag` triggers
+- expert taxonomy mapping
+- deliberation evidence-routing strategy
+
+The next sections explain how to evaluate each of those choices.
+
+## Calibration Experiments
 
 ### Experiment 1 — Channel Weight Calibration
 
-Question:
-- Are the current repository/behavior weights correct?
+Use this when:
+
+- you changed the weighting logic
+- `hybrid` looks too repo-heavy or too behavior-heavy
+- disagreement cases are resolving poorly
 
 Method:
 
@@ -186,7 +300,7 @@ Method:
 4. Run the full suite with each pair.
 5. Compare performance by evaluation mode and case type.
 
-Primary metrics:
+Look at:
 
 - decision accuracy against benchmark label
 - false approve rate on unsafe cases
@@ -195,14 +309,17 @@ Primary metrics:
 - explanation consistency between dominant evidence channel and final decision
 - confidence interval width for the main metrics across repeated runs
 
-Success criterion:
+Good outcome:
 
-- choose the weight pair that minimizes unsafe false approvals while preserving acceptable false-review and false-reject rates
+- a weight pair that improves unsafe-case handling without creating unacceptable false-review or false-reject burden
 
 ### Experiment 2 — Hybrid Threshold Calibration
 
-Question:
-- Are the current reject/review thresholds too strict or too weak?
+Use this when:
+
+- `hybrid` sends too many cases to `REVIEW`
+- clear unsafe cases slip through
+- disagreement-heavy slices are unstable
 
 Method:
 
@@ -220,7 +337,7 @@ Method:
    - decision stability under minor score perturbations
    - interval overlap between neighboring threshold bundles
 
-Primary metrics:
+Look at:
 
 - unsafe false approve rate
 - review inflation rate
@@ -228,14 +345,17 @@ Primary metrics:
 - decision stability across repeated runs
 - worst-case error on disagreement-heavy cases
 
-Success criterion:
+Good outcome:
 
-- threshold bundle that strongly controls unsafe approvals without sending too many clear safe cases into `REVIEW`
+- thresholds that control unsafe approvals without turning every disagreement into review noise
 
 ### Experiment 3 — Multilingual Uncertainty Thresholds
 
-Question:
-- Are `translation_confidence` and `uncertainty_flag` thresholds calibrated?
+Use this when:
+
+- multilingual cases are under-escalated
+- multilingual cases are over-escalated
+- language-mixed transcripts are unstable
 
 Method:
 
@@ -253,7 +373,7 @@ Method:
    - confidence plus `unknown`
 4. Measure whether uncertain cases are appropriately pushed to `REVIEW`.
 
-Primary metrics:
+Look at:
 
 - unsafe false approve rate in multilingual cases
 - over-review rate in high-confidence multilingual cases
@@ -261,16 +381,19 @@ Primary metrics:
 - interval stability of the uncertainty-triggered review rate
 - worst-case miss rate on multilingual unsafe cases
 
-Success criterion:
+Good outcome:
 
-- conservative handling of ambiguous multilingual cases without over-triggering uncertainty on clean multilingual evidence
+- ambiguous multilingual cases move to `REVIEW`, but clean multilingual evidence does not trigger unnecessary review
 
 ## Taxonomy Validation
 
 ### Experiment 4 — Current Taxonomy vs. `proj-2` Taxonomy
 
-Question:
-- Is the current expert split better than a direct `proj-2`-style split?
+Use this when:
+
+- expert outputs are too repetitive
+- expert roles are hard to explain to users
+- taxonomy labels changed but behavior did not improve
 
 Compare:
 
@@ -294,7 +417,7 @@ Method:
    - stakeholder interpretability
    - robustness of those results across repeated runs
 
-Primary metrics:
+Look at:
 
 - pairwise expert output similarity
 - lens-specific finding recall
@@ -302,16 +425,19 @@ Primary metrics:
 - reviewer-rated clarity of expert roles
 - interval overlap for decision accuracy between taxonomy schemes
 
-Success criterion:
+Good outcome:
 
-- prefer the taxonomy that yields clearer expert specialization and better final decisions without collapsing into repeated findings
+- clearer expert specialization, lower overlap, and better downstream decisions
 
 ## Deliberation Validation
 
 ### Experiment 5 — Evidence-Routing Ablation
 
-Question:
-- Which evidence-routing strategy improves deliberation quality the most?
+Use this when:
+
+- critiques keep citing the same refs
+- deliberation looks repetitive
+- routing logic has become too complex to justify
 
 Compare:
 
@@ -334,7 +460,7 @@ Annotation rubric:
 - cross-expert differentiation
 - usefulness for final arbitration
 
-Primary metrics:
+Look at:
 
 - average critique quality score
 - unique evidence reference rate
@@ -342,9 +468,9 @@ Primary metrics:
 - change in stakeholder readability
 - stability of those gains across repeated runs
 
-Success criterion:
+Good outcome:
 
-- routing strategy that increases critique specificity and evidence relevance without degrading final decision accuracy
+- more specific critiques, better evidence diversity, and no loss in final decision quality
 
 ## Annotation Scheme
 
@@ -368,7 +494,7 @@ Recommended agreement metrics:
 - Cohen's kappa or Krippendorff's alpha for categorical labels
 - percent agreement for dominant channel and uncertainty labels
 
-## Outputs and Artifacts
+## What To Save From Each Validation Run
 
 Each validation run should produce:
 
@@ -411,7 +537,7 @@ Recommended per-run logging fields:
 - `critical_failure_type`
 - `slice_label`
 
-## Implementation Phases
+## Suggested Working Order
 
 ### Phase 1 — Benchmark Assembly
 
@@ -440,7 +566,7 @@ Recommended per-run logging fields:
 
 ## Multi-Agent Validation Workflow
 
-Use a four-agent workflow so the benchmark and analysis do not collapse into one person's intuition:
+If you are doing a larger validation cycle, use a four-agent workflow so the benchmark and analysis do not collapse into one person's intuition:
 
 ### Agent 1 — Literature Mapper
 
@@ -493,7 +619,7 @@ Deliverables:
 - final validation memo
 - updated configuration rationale
 
-## Deliverable Standard
+## When a Setting Counts as "Validated"
 
 These design choices should be treated as validated only after the project can show:
 

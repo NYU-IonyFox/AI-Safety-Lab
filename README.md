@@ -112,7 +112,7 @@ This system is best understood as a **research-informed, standards-aligned assur
 - **Hybrid assurance -> system-level AI risk management**
   The `hybrid` mode explicitly combines repository evidence and behavior evidence instead of pretending either channel is complete on its own. This design is aligned with system-level assurance guidance from [NIST AI RMF 1.0](https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-ai-rmf-10), the [NIST AI RMF Generative AI Profile](https://www.nist.gov/publications/artificial-intelligence-risk-management-framework-generative-artificial-intelligence), and [MITRE AI Assurance](https://www.mitre.org/news-insights/publication/ai-assurance-repeatable-process-assuring-ai-enabled-systems).
 
-Important caveat: the exact implementation choices in this repository, such as `repository_channel_score`, `behavior_channel_score`, rule thresholds, and evidence-routing heuristics, are **design choices that still require benchmark validation**. See [ARCHITECTURE.md](ARCHITECTURE.md) for the full rationale and [VALIDATION_PLAN.md](VALIDATION_PLAN.md) for the empirical validation roadmap.
+Important caveat: the exact implementation choices in this repository, such as `repository_channel_score`, `behavior_channel_score`, rule thresholds, and evidence-routing heuristics, are **design choices that still require benchmark validation**. See [ARCHITECTURE.md](ARCHITECTURE.md) for the full rationale and [BENCHMARK_VALIDATION_PLAN.md](BENCHMARK_VALIDATION_PLAN.md) for the user-facing benchmark roadmap.
 
 ---
 
