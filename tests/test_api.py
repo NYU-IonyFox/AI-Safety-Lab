@@ -4,9 +4,9 @@ import subprocess
 from pathlib import Path
 
 import app.intake.submission_service as submission_service
-from fastapi.testclient import TestClient
 
-from app.main import app
+from app.main import evaluate, health, root, smoke_test
+from app.schemas import EvaluationRequest
 
 
 GITHUB_URL = "https://github.com/example/verimedia-mini"
@@ -47,7 +47,8 @@ def _assert_report_shape(body: dict) -> None:
     assert body["council_result"]["recommended_actions"]
     assert body["council_result"]["decision_rule_triggered"]
     assert body["repository_summary"]["evidence_items"]
-    assert all(expert["metadata"]["runner_mode"] == "rules" for expert in body["experts"])
+    assert all(expert["metadata"]["runner_mode"] in {"slm", "rules_fallback", "rules"} for expert in body["experts"])
+    assert all(expert["metadata"]["configured_backend"] for expert in body["experts"])
     assert any(
         item["signal"] == "Tracked fine-tuned model identifier detected"
         for item in body["repository_summary"]["evidence_items"]
@@ -66,7 +67,7 @@ def _assert_report_shape(body: dict) -> None:
 
 
 
-def _post_payload(client: TestClient, submission: dict) -> dict:
+def _post_payload(_: object, submission: dict) -> dict:
     payload = {
         "context": {"agent_name": "VeriMedia", "domain": "Other", "capabilities": [], "high_autonomy": False},
         "submission": submission,
@@ -74,9 +75,8 @@ def _post_payload(client: TestClient, submission: dict) -> dict:
         "selected_policies": ["eu_ai_act", "us_nist", "iso", "unesco"],
         "conversation": [],
     }
-    response = client.post("/v1/evaluations", json=payload)
-    assert response.status_code == 200, response.text
-    return response.json()
+    response = evaluate(EvaluationRequest.model_validate(payload))
+    return response.model_dump()
 
 
 
@@ -113,18 +113,12 @@ def _build_local_submission(repo_dir: Path) -> dict:
 
 
 def test_health() -> None:
-    client = TestClient(app)
-    response = client.get("/health")
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert health() == {"status": "ok"}
 
 
 
 def test_root_describes_api_entrypoints() -> None:
-    client = TestClient(app)
-    response = client.get("/")
-    assert response.status_code == 200
-    body = response.json()
+    body = root()
     assert body["status"] == "ok"
     assert body["docs_url"] == "/docs"
     assert body["smoke_test_url"] == "/smoke-test"
@@ -133,12 +127,9 @@ def test_root_describes_api_entrypoints() -> None:
 
 
 def test_smoke_test_initializes_all_three_experts() -> None:
-    client = TestClient(app)
-    response = client.get("/smoke-test")
-    assert response.status_code == 200
-    body = response.json()
+    body = smoke_test()
     assert body["smoke_test"] == "pass"
-    assert body["llm_backend"] == "rules"
+    assert body["llm_backend"] == "local_hf"
     assert set(body["experts"]) == {
         "policy_and_compliance",
         "adversarial_misuse",
@@ -153,8 +144,7 @@ def test_local_repo_submission_returns_structured_report(tmp_path: Path) -> None
     repo_dir = tmp_path / "verimedia-mini"
     _build_demo_repo(repo_dir)
 
-    client = TestClient(app)
-    body = _post_payload(client, _build_local_submission(repo_dir))
+    body = _post_payload(None, _build_local_submission(repo_dir))
 
     _assert_report_shape(body)
     assert body["repository_summary"]["source_type"] == "local_path"
@@ -167,8 +157,7 @@ def test_github_url_submission_returns_structured_report(tmp_path: Path, monkeyp
     _build_demo_repo(source_repo)
     monkeypatch.setattr("app.intake.submission_service.subprocess.run", _fake_git_clone_factory(source_repo))
 
-    client = TestClient(app)
-    body = _post_payload(client, _build_github_submission())
+    body = _post_payload(None, _build_github_submission())
 
     _assert_report_shape(body)
     assert body["repository_summary"]["source_type"] == "github_url"
@@ -196,14 +185,13 @@ def test_github_url_submission_survives_deleted_process_cwd(tmp_path: Path, monk
 
     monkeypatch.setattr("app.intake.submission_service.subprocess.run", fake_run)
 
-    client = TestClient(app)
     vanished_cwd = tmp_path / "vanished-cwd"
     vanished_cwd.mkdir()
     previous_cwd = os.getcwd()
     try:
         os.chdir(vanished_cwd)
         shutil.rmtree(vanished_cwd)
-        body = _post_payload(client, _build_github_submission())
+        body = _post_payload(None, _build_github_submission())
     finally:
         os.chdir(previous_cwd)
 

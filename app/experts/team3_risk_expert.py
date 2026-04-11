@@ -13,6 +13,7 @@ from app.schemas import (
     Team3RiskInput,
     Team3RiskProtocolResult,
 )
+from app.slm.prompting import load_expert_system_prompt, response_contract_for
 
 
 class Team3RiskExpert(ExpertModule):
@@ -50,7 +51,7 @@ class Team3RiskExpert(ExpertModule):
         backend = os.getenv("SLM_BACKEND", "mock").strip().lower()
         input_package = self._build_input_package(request)
         if TEAM3_REQUIRE_LOCAL_SLM and backend not in {"local", "gamma4", "local-gamma4", "local_http", "local-http"}:
-            return self._make_verdict(
+            return self._mark_execution(self._make_verdict(
                 risk_score=0.66,
                 confidence=0.9,
                 critical=False,
@@ -72,19 +73,19 @@ class Team3RiskExpert(ExpertModule):
                     "team3_require_local_slm": TEAM3_REQUIRE_LOCAL_SLM,
                 },
                 evaluation_status="failed",
-            )
+            ), execution_path="rules_fallback", fallback_reason="team3_local_slm_guard")
 
         if self._should_use_slm():
             try:
-                return self._assess_with_slm(request)
+                return self._mark_execution(self._assess_with_slm(request), execution_path="slm")
             except Exception as exc:  # noqa: BLE001
                 fallback = self._assess_rules(request)
                 fallback.evaluation_status = "degraded"
                 fallback.findings.append(f"Team3 local SLM fallback triggered: {exc}")
                 fallback.evidence["slm_error"] = str(exc)
                 fallback.detail_payload.evaluation_status = "degraded"
-                return fallback
-        return self._assess_rules(request)
+                return self._mark_execution(fallback, execution_path="rules_fallback", fallback_reason=str(exc))
+        return self._mark_execution(self._assess_rules(request), execution_path="rules")
 
     def _build_input_package(self, request: EvaluationRequest) -> Team3RiskInput:
         expert_input = request.expert_input
@@ -109,7 +110,12 @@ class Team3RiskExpert(ExpertModule):
     def _assess_with_slm(self, request: EvaluationRequest) -> ExpertVerdict:
         assert self.runner is not None
         input_package = self._build_input_package(request)
-        result = self.runner.complete_json(task=self.name, payload=input_package.model_dump())
+        result = self.runner.complete_json(
+            task=self.name,
+            payload=input_package.model_dump(),
+            system_prompt=load_expert_system_prompt(self.name),
+            response_contract=response_contract_for(self.name),
+        )
         evaluation_status = self._normalize_status(result.get("evaluation_status", "success"))
         if isinstance(result.get("protocol_results"), list):
             return self._from_protocol_results(

@@ -28,8 +28,10 @@ def root() -> dict[str, str]:
         "health_url": "/health",
         "smoke_test_url": "/smoke-test",
         "evaluation_endpoint": "/v1/evaluations",
+        "default_backend": orchestrator.version.expert_model_backend,
         "cli_hint": "Run `ai-safety-lab-eval --github-url https://github.com/owner/repository` for a no-schema CLI path.",
         "frontend_hint": "Run `streamlit run frontend/streamlit_app.py` for the stakeholder-facing UI.",
+        "fallback_hint": "If local HF dependencies are unavailable, expert verdicts degrade to rules_fallback and record the reason in metadata.",
     }
 
 
@@ -72,12 +74,15 @@ def smoke_test() -> dict[str, object]:
             "status": "ok",
             "evaluation_status": verdict.evaluation_status,
             "risk_tier": verdict.risk_tier,
+            "runner_mode": str(verdict.evidence.get("execution_path", "unknown")),
+            "backend": str(verdict.evidence.get("configured_backend", orchestrator.version.expert_model_backend)),
         }
 
     council = synthesize_council(verdicts)
     return {
         "smoke_test": "pass",
         "llm_backend": orchestrator.version.expert_model_backend,
+        "configured_execution_mode": orchestrator.experts[0].configured_execution_mode() if orchestrator.experts else "unknown",
         "experts": expert_statuses,
         "council_preview": {
             "decision": council.decision,

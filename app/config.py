@@ -24,7 +24,7 @@ COUNCIL_REVIEW_THRESHOLD = float(os.getenv("COUNCIL_REVIEW_THRESHOLD", "0.45"))
 COUNCIL_STRONG_SIGNAL_THRESHOLD = float(os.getenv("COUNCIL_STRONG_SIGNAL_THRESHOLD", "0.80"))
 
 # rules | slm | hybrid
-EXPERT_EXECUTION_MODE = os.getenv("EXPERT_EXECUTION_MODE", "rules").strip().lower()
+EXPERT_EXECUTION_MODE = os.getenv("EXPERT_EXECUTION_MODE", "slm").strip().lower()
 
 TEAM3_REQUIRE_LOCAL_SLM = os.getenv("TEAM3_REQUIRE_LOCAL_SLM", "false").strip().lower() in {"1", "true", "yes", "on"}
 

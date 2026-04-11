@@ -9,7 +9,16 @@ class MockSLMRunner(SLMRunner):
     Replace with local model runner later while keeping `complete_json` stable.
     """
 
-    def complete_json(self, task: str, payload: dict[str, Any]) -> dict[str, Any]:
+    backend_name = "mock"
+
+    def complete_json(
+        self,
+        task: str,
+        payload: dict[str, Any],
+        *,
+        system_prompt: str = "",
+        response_contract: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         text_blob = self._extract_text(payload).lower()
 
         if task == "team3_risk_expert":
@@ -105,4 +114,3 @@ class MockSLMRunner(SLMRunner):
         if not isinstance(turns, list):
             return ""
         return " ".join(str(t.get("content", "")) for t in turns if isinstance(t, dict))
-

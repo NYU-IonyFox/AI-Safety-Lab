@@ -8,10 +8,10 @@ from app.slm.local_http_runner import LocalHTTPRunner
 from app.slm.mock_runner import MockSLMRunner
 
 
-def test_factory_default_is_mock(monkeypatch) -> None:
+def test_factory_default_is_local_hf(monkeypatch) -> None:
     monkeypatch.delenv("SLM_BACKEND", raising=False)
     monkeypatch.delenv("LOCAL_SLM_MODE", raising=False)
-    assert isinstance(get_slm_runner(), MockSLMRunner)
+    assert isinstance(get_slm_runner(), LocalHFRunner)
 
 
 def test_factory_local_http_mode(monkeypatch) -> None:
@@ -57,7 +57,7 @@ def test_local_hf_runner_parses_and_normalizes_generated_json_without_model_load
     monkeypatch.setattr(
         runner,
         "_generate_response_text",
-        lambda task, payload: """```json
+        lambda task, payload, system_prompt="", response_contract=None: """```json
 {"risk_score": 0.73, "confidence": 0.66, "critical": false, "risk_tier": "high", "summary": "ok", "findings": ["a"], "evaluation_status": "success"}
 ```""",
     )

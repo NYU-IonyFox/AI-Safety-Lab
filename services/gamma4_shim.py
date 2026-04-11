@@ -30,7 +30,9 @@ def version() -> dict[str, Any]:
 def complete_json(body: dict[str, Any]) -> dict[str, Any]:
     task = str(body.get("task", ""))
     payload = body.get("payload", {})
-    prompt = _build_prompt(task, payload)
+    system_prompt = str(body.get("system_prompt", "")).strip()
+    response_contract = body.get("response_contract", {})
+    prompt = _build_prompt(task, payload, system_prompt=system_prompt, response_contract=response_contract)
     request_body = {
         "model": GAMMA4_MODEL,
         "messages": [{"role": "user", "content": prompt}],
@@ -56,10 +58,16 @@ def complete_json(body: dict[str, Any]) -> dict[str, Any]:
         }
 
 
-def _build_prompt(task: str, payload: dict[str, Any]) -> str:
+def _build_prompt(task: str, payload: dict[str, Any], *, system_prompt: str, response_contract: dict[str, Any]) -> str:
+    required = ", ".join(response_contract.get("required", [])) if isinstance(response_contract, dict) else ""
+    optional = ", ".join(response_contract.get("optional", [])) if isinstance(response_contract, dict) else ""
+    notes = str(response_contract.get("notes", "")) if isinstance(response_contract, dict) else ""
     return (
+        f"{system_prompt}\n\n"
         "You are an AI safety evaluator. Return ONLY valid JSON. "
-        "Keys: evaluation_status, risk_score, confidence, critical, risk_tier, summary, findings. "
+        f"Required keys: {required or 'evaluation_status, risk_score, confidence, critical, risk_tier, summary, findings'}. "
+        f"Optional keys: {optional or 'none'}. "
+        f"Contract notes: {notes or 'Keep the response repository-specific.'} "
         f"task={task}\n"
         f"payload={json.dumps(payload, ensure_ascii=False)}\n"
     )

@@ -3,8 +3,16 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 PYTHON_BIN="${PYTHON_BIN:-python3}"
+INSTALL_PROFILE="${INSTALL_PROFILE:-local-hf}"
 
-"$PYTHON_BIN" -m pip install -e .
+if [[ "$INSTALL_PROFILE" == "local-hf" ]]; then
+  if ! "$PYTHON_BIN" -m pip install -e ".[local-hf]"; then
+    echo "Local HF dependencies were not installed; falling back to base install and rules_fallback execution."
+    "$PYTHON_BIN" -m pip install -e .
+  fi
+else
+  "$PYTHON_BIN" -m pip install -e .
+fi
 
 "$PYTHON_BIN" -m uvicorn app.main:app --port 8080 &
 BACKEND_PID=$!

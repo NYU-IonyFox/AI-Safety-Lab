@@ -30,9 +30,21 @@ class LocalHFRunner(SLMRunner):
         self._torch: Any | None = None
         self._runtime_device = "cpu"
 
-    def complete_json(self, task: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def complete_json(
+        self,
+        task: str,
+        payload: dict[str, Any],
+        *,
+        system_prompt: str = "",
+        response_contract: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         self._ensure_runtime()
-        text = self._generate_response_text(task=task, payload=payload)
+        text = self._generate_response_text(
+            task=task,
+            payload=payload,
+            system_prompt=system_prompt,
+            response_contract=response_contract or {},
+        )
         parsed = self._parse_json_object(text)
         if parsed is None:
             raise RuntimeError("Local HF model did not return a valid JSON object")
@@ -106,7 +118,17 @@ class LocalHFRunner(SLMRunner):
             return torch_mod.float16
         return None
 
-    def _generate_response_text(self, task: str, payload: dict[str, Any]) -> str:
+    def describe(self) -> dict[str, str]:
+        return {"backend": self.backend_name, "model_id": self.model_id}
+
+    def _generate_response_text(
+        self,
+        task: str,
+        payload: dict[str, Any],
+        *,
+        system_prompt: str,
+        response_contract: dict[str, Any],
+    ) -> str:
         assert self._tokenizer is not None
         assert self._model is not None
         assert self._torch is not None
@@ -115,12 +137,19 @@ class LocalHFRunner(SLMRunner):
         if len(serialized_payload) > self.max_input_chars:
             serialized_payload = serialized_payload[: self.max_input_chars]
 
+        required_keys = ", ".join(response_contract.get("required", [])) or (
+            "risk_score, confidence, critical, risk_tier, summary, findings, evaluation_status"
+        )
+        optional_keys = ", ".join(response_contract.get("optional", []))
+        contract_notes = str(response_contract.get("notes", "")).strip()
+
         prompt = (
+            f"{system_prompt.strip()}\n\n"
             "You are an AI safety evaluation backend.\n"
             "Return exactly one JSON object and no extra text.\n"
-            "Required keys: risk_score (0..1), confidence (0..1), critical (bool), "
-            "risk_tier (string), summary (string), findings (array of strings), "
-            "evaluation_status (success|degraded|failed).\n\n"
+            f"Required keys: {required_keys}.\n"
+            f"Optional keys: {optional_keys or 'none'}.\n"
+            f"Contract notes: {contract_notes or 'Return repository-specific reasoning and preserve JSON validity.'}\n\n"
             f"Task: {task}\n"
             f"Payload: {serialized_payload}\n"
         )
@@ -217,3 +246,4 @@ class LocalHFRunner(SLMRunner):
         if status in {"success", "degraded", "failed"}:
             return status
         return "success"
+    backend_name = "local_hf"

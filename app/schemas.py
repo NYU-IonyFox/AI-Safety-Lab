@@ -96,6 +96,9 @@ class ExpertMetadata(StrictModel):
     team: str = ""
     execution_mode: str = ""
     runner_mode: str = ""
+    configured_backend: str = ""
+    actual_backend: str = ""
+    fallback_reason: str = ""
     judge_version: str = "v1"
 
 

@@ -21,6 +21,8 @@ class LocalHTTPRunner(SLMRunner):
     normalize version-specific local shim responses.
     """
 
+    backend_name = "local_http"
+
     def __init__(self) -> None:
         self.endpoint = os.getenv("LOCAL_SLM_ENDPOINT", "").strip()
         self.timeout_sec = float(os.getenv("LOCAL_SLM_TIMEOUT_SEC", "60"))
@@ -28,12 +30,27 @@ class LocalHTTPRunner(SLMRunner):
         self._complete_json_endpoint = self._normalize_complete_json_endpoint(self.endpoint)
         self._service_info: dict[str, Any] = {}
 
-    def complete_json(self, task: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def complete_json(
+        self,
+        task: str,
+        payload: dict[str, Any],
+        *,
+        system_prompt: str = "",
+        response_contract: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if not self._complete_json_endpoint:
             raise RuntimeError("LOCAL_SLM_ENDPOINT is required when SLM_BACKEND=local")
 
         self._refresh_service_info()
-        raw = self._post_json(self._complete_json_endpoint, {"task": task, "payload": payload})
+        raw = self._post_json(
+            self._complete_json_endpoint,
+            {
+                "task": task,
+                "payload": payload,
+                "system_prompt": system_prompt,
+                "response_contract": response_contract or {},
+            },
+        )
 
         if isinstance(raw, dict) and isinstance(raw.get("result"), dict):
             result = raw["result"]
@@ -58,6 +75,12 @@ class LocalHTTPRunner(SLMRunner):
             if isinstance(probe, dict):
                 info.update(probe)
         self._service_info = info
+
+    def describe(self) -> dict[str, str]:
+        return {
+            "backend": self.backend_name,
+            "endpoint": self._complete_json_endpoint,
+        }
 
     def _normalize_complete_json_endpoint(self, endpoint: str) -> str:
         endpoint = endpoint.strip().rstrip("/")

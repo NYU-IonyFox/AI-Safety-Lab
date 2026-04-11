@@ -34,7 +34,8 @@ from app.targets import HTTPTextTarget
 class SafetyLabOrchestrator:
     def __init__(self) -> None:
         runner = get_slm_runner()
-        self.version = VersionInfo(expert_model_backend=EXPERT_EXECUTION_MODE)
+        self.runner = runner
+        self.version = VersionInfo(expert_model_backend=self._configured_backend_label())
         self.target_client = HTTPTextTarget(timeout_sec=TARGET_TIMEOUT_SEC)
         self.experts = [
             Team3RiskExpert(runner=runner),
@@ -180,7 +181,7 @@ class SafetyLabOrchestrator:
                 "orchestrator_version": self.version.orchestrator_version,
                 "decision_rule_version": self.version.decision_rule_version,
                 "target_model_version": str(request.metadata.get("target_model", "")).strip(),
-                "expert_model_backend": EXPERT_EXECUTION_MODE,
+                "expert_model_backend": self._configured_backend_label(),
                 "judge_versions": judge_versions,
             }
         )
@@ -303,15 +304,20 @@ class SafetyLabOrchestrator:
             deduped.append(prompt)
         return deduped
 
-    def _build_expert_metadata(self) -> list[ExpertMetadata]:
-        return [self._expert_metadata_for(expert) for expert in self.experts]
+    def _build_expert_metadata(self, verdicts: list[ExpertVerdict]) -> list[ExpertMetadata]:
+        verdicts_by_name = {verdict.expert_name: verdict for verdict in verdicts}
+        return [self._expert_metadata_for(expert, verdicts_by_name.get(expert.name)) for expert in self.experts]
 
-    def _expert_metadata_for(self, expert: Any) -> ExpertMetadata:
+    def _expert_metadata_for(self, expert: Any, verdict: ExpertVerdict | None) -> ExpertMetadata:
+        evidence = verdict.evidence if verdict is not None else {}
         return ExpertMetadata(
             expert_name=expert.name,
             team=self._infer_team_name(expert.name),
             execution_mode=EXPERT_EXECUTION_MODE,
-            runner_mode=self._runner_mode(expert),
+            runner_mode=str(evidence.get("execution_path", self._runner_mode(expert))),
+            configured_backend=self._runner_backend_label(expert),
+            actual_backend=str(evidence.get("configured_backend", self._runner_backend_label(expert))),
+            fallback_reason=str(evidence.get("fallback_reason", "")),
             judge_version="v1",
         )
 
@@ -320,6 +326,15 @@ class SafetyLabOrchestrator:
         if callable(should_use_slm) and should_use_slm():
             return "slm"
         return "rules"
+
+    def _runner_backend_label(self, expert: Any) -> str:
+        runner = getattr(expert, "runner", None)
+        if runner is None:
+            return "rules"
+        return str(runner.describe().get("backend", "slm"))
+
+    def _configured_backend_label(self) -> str:
+        return str(self.runner.describe().get("backend", "slm"))
 
     def _infer_team_name(self, expert_name: str) -> str:
         if expert_name.startswith("team1_"):
@@ -331,7 +346,7 @@ class SafetyLabOrchestrator:
         return "unknown"
 
     def _attach_expert_metadata(self, verdicts: list[ExpertVerdict]) -> list[ExpertVerdict]:
-        metadata_by_name = {metadata.expert_name: metadata for metadata in self._build_expert_metadata()}
+        metadata_by_name = {metadata.expert_name: metadata for metadata in self._build_expert_metadata(verdicts)}
         return [verdict.model_copy(update={"metadata": metadata_by_name.get(verdict.expert_name)}) for verdict in verdicts]
 
     def _attach_council_metadata(self, council_result: CouncilResult, verdicts: list[ExpertVerdict]) -> CouncilResult:

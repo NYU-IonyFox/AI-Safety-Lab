@@ -85,7 +85,7 @@ The capstone memo emphasizes an on-prem, auditable, governance-aligned AI Safety
 - **explicit critique/synthesis**: council arbitration with a named `decision_rule_triggered`
 - **auditability**: repository evidence, markdown reports, JSON archives, and redaction before persistence
 
-The repository also includes optional hooks for more advanced expert-model backends, but the default quickstart intentionally runs in a deterministic rules/mock mode so users can install and test it without extra credentials or cluster access.
+The repository is now oriented around a standalone local SLM path by default: the three experts attempt local open-weight inference first, and fall back to rules only when the local HF runtime is unavailable or returns unusable output.
 
 ---
 
@@ -97,7 +97,7 @@ The repository also includes optional hooks for more advanced expert-model backe
 - `git`
 - Network access to `github.com` for GitHub URL intake
 
-No live API key is required for the default quickstart path.
+No live API key is required for the default standalone SLM path.
 
 ### Step 1 — Clone and install
 
@@ -107,8 +107,10 @@ cd AI-Safety-Lab
 python -m venv .venv
 source .venv/bin/activate      # Windows: .venv\Scripts\activate
 python -m pip install --upgrade pip
-python -m pip install -e .
+python -m pip install -e ".[local-hf]"
 ```
+
+If you only want the fallback/no-model developer path, `python -m pip install -e .` still works, but expert outputs will degrade to `rules_fallback` until the local HF dependencies are installed.
 
 ### Step 2 — Start the backend
 
@@ -147,11 +149,12 @@ Expected response shape:
 ```json
 {
   "smoke_test": "pass",
-  "llm_backend": "rules",
+  "llm_backend": "local_hf",
+  "configured_execution_mode": "slm",
   "experts": {
-    "policy_and_compliance": {"status": "ok"},
-    "adversarial_misuse": {"status": "ok"},
-    "system_and_deployment": {"status": "ok"}
+    "policy_and_compliance": {"status": "ok", "runner_mode": "slm"},
+    "adversarial_misuse": {"status": "ok", "runner_mode": "slm"},
+    "system_and_deployment": {"status": "ok", "runner_mode": "slm"}
   },
   "council_preview": {
     "decision": "APPROVE",
@@ -182,6 +185,8 @@ Use either of the supported input modes:
 - `local_path` for a repository already on disk
 
 Leave advanced target-execution fields blank for the default no-key path.
+
+If `/smoke-test` shows `runner_mode: rules_fallback`, the API is still healthy, but the local HF dependencies are not active yet.
 
 ---
 
@@ -375,15 +380,16 @@ ai-safety-lab/
 
 ## Configuration
 
-The default quickstart path is intentionally safe:
+The default quickstart path is standalone and SLM-first:
 
-- `SLM_BACKEND=mock`
-- `EXPERT_EXECUTION_MODE=rules`
+- `SLM_BACKEND=local`
+- `LOCAL_SLM_MODE=hf`
+- `EXPERT_EXECUTION_MODE=slm`
 - `TEAM3_REQUIRE_LOCAL_SLM=false`
 
 Optional environment variables are documented in `.env.example`.
 
-These are only needed if you want to enable optional expert-model or target-model integrations:
+If the local HF runtime is unavailable, the experts degrade to `rules_fallback` and record the reason in their metadata. These variables matter when you want to switch runner types or enable target-model integrations:
 
 - `LOCAL_SLM_ENDPOINT`
 - `LOCAL_SLM_API_KEY`
@@ -401,10 +407,11 @@ Docker is supported, but the recommended quickstart path is the plain Python pat
 docker compose up --build
 ```
 
-The Docker defaults are aligned with the same no-key evaluation mode used by the README:
+The Docker defaults are aligned with the same standalone local-SLM mode used by the README:
 
-- `SLM_BACKEND=mock`
-- `EXPERT_EXECUTION_MODE=rules`
+- `SLM_BACKEND=local`
+- `LOCAL_SLM_MODE=hf`
+- `EXPERT_EXECUTION_MODE=slm`
 
 ---
 
@@ -423,7 +430,7 @@ GitHub Actions CI is included and runs the test suite on push and pull request.
 
 ## Security and Repository Hygiene
 
-- No live API key is required for the default evaluation flow.
+- No live API key is required for the default standalone local-SLM evaluation flow.
 - Secrets are redacted before JSON archives are written.
 - Generated reports are written under `data/reports/`.
 - `.env`, build artifacts, test caches, and generated reports are ignored.

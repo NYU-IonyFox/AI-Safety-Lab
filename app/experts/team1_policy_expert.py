@@ -11,6 +11,7 @@ from app.schemas import (
     Team1PolicyDetail,
     Team1PolicyInput,
 )
+from app.slm.prompting import load_expert_system_prompt, response_contract_for
 
 
 class Team1PolicyExpert(ExpertModule):
@@ -81,20 +82,27 @@ class Team1PolicyExpert(ExpertModule):
         """Score governance, accountability, and control gaps for the submitted repository."""
         if self._should_use_slm():
             try:
-                return self._assess_with_slm(request)
+                return self._mark_execution(self._assess_with_slm(request), execution_path="slm")
             except Exception as exc:  # noqa: BLE001
                 fallback = self._assess_rules(request)
                 fallback.evaluation_status = "degraded"
                 fallback.findings.append(f"SLM fallback triggered: {exc}")
                 fallback.evidence["slm_error"] = str(exc)
                 fallback.detail_payload.evaluation_status = "degraded"
-                return fallback
-        return self._assess_rules(request)
+                return self._mark_execution(fallback, execution_path="rules_fallback", fallback_reason=str(exc))
+        return self._mark_execution(self._assess_rules(request), execution_path="rules")
 
     def _assess_with_slm(self, request: EvaluationRequest) -> ExpertVerdict:
         assert self.runner is not None
         input_package = self._build_input_package(request)
-        result = self.runner.complete_json(task=self.name, payload=input_package.model_dump())
+        repo = input_package.repository_summary
+        policy_scope = analyze_policy_scope(repo.resolved_path, repo) if repo is not None and repo.resolved_path else None
+        result = self.runner.complete_json(
+            task=self.name,
+            payload=input_package.model_dump(),
+            system_prompt=load_expert_system_prompt(self.name),
+            response_contract=response_contract_for(self.name),
+        )
         policy_alerts = [
             PolicyRiskMapping(
                 policy=str(item.get("policy", "unknown")),
@@ -111,7 +119,14 @@ class Team1PolicyExpert(ExpertModule):
             input_package=input_package,
             policy_alerts=policy_alerts,
             violations=[v for v in result.get("violations", []) if isinstance(v, dict)],
-            notes=["SLM-derived policy evaluation."],
+            notes=[
+                "SLM-derived policy evaluation.",
+                *(
+                    [f"Independent policy scan across {policy_scope.scanned_file_count} files."]
+                    if policy_scope is not None and policy_scope.scan_mode == "local_scan"
+                    else []
+                ),
+            ],
         )
         return ExpertVerdict(
             expert_name=self.name,
@@ -123,7 +138,14 @@ class Team1PolicyExpert(ExpertModule):
             summary=str(result.get("summary", "SLM policy assessment result.")),
             findings=[str(x) for x in result.get("findings", [])],
             detail_payload=detail_payload,
-            evidence={"source": "slm", "raw": result},
+            evidence={
+                "source": "slm",
+                "raw": result,
+                "policy_scope_scan_mode": policy_scope.scan_mode if policy_scope is not None else "none",
+                "policy_scope_scanned_file_count": policy_scope.scanned_file_count if policy_scope is not None else 0,
+                "policy_scope_controls": policy_scope.governance_controls if policy_scope is not None else [],
+                "policy_scope_evidence": [item.model_dump() for item in policy_scope.evidence_items] if policy_scope is not None else [],
+            },
         )
 
     def _assess_rules(self, request: EvaluationRequest) -> ExpertVerdict:

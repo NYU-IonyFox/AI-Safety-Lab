@@ -13,6 +13,7 @@ from app.schemas import (
     Team2RedTeamDetail,
     Team2RedTeamInput,
 )
+from app.slm.prompting import load_expert_system_prompt, response_contract_for
 
 
 class Team2RedTeamExpert(ExpertModule):
@@ -144,15 +145,15 @@ class Team2RedTeamExpert(ExpertModule):
         """Score exploitability and misuse paths using the red-team lens for the repository."""
         if self._should_use_slm():
             try:
-                return self._assess_with_slm(request)
+                return self._mark_execution(self._assess_with_slm(request), execution_path="slm")
             except Exception as exc:  # noqa: BLE001
                 fallback = self._assess_rules(request)
                 fallback.evaluation_status = "degraded"
                 fallback.findings.append(f"SLM fallback triggered: {exc}")
                 fallback.evidence["slm_error"] = str(exc)
                 fallback.detail_payload.evaluation_status = "degraded"
-                return fallback
-        return self._assess_rules(request)
+                return self._mark_execution(fallback, execution_path="rules_fallback", fallback_reason=str(exc))
+        return self._mark_execution(self._assess_rules(request), execution_path="rules")
 
     def _build_protocol_bundle(self, request: EvaluationRequest, tier: int, dimensions: list[str]) -> dict[str, Any]:
         category_questions = {
@@ -254,7 +255,12 @@ class Team2RedTeamExpert(ExpertModule):
         assert self.runner is not None
         input_package = self._build_input_package(request)
         surface_scores = self._derive_dimension_scores(input_package)
-        result = self.runner.complete_json(task=self.name, payload=input_package.model_dump())
+        result = self.runner.complete_json(
+            task=self.name,
+            payload=input_package.model_dump(),
+            system_prompt=load_expert_system_prompt(self.name),
+            response_contract=response_contract_for(self.name),
+        )
         evaluation_status = self._normalize_status(result.get("evaluation_status", "success"))
         if isinstance(result.get("dimension_scores"), dict):
             protocol_results = [item for item in result.get("protocol_results", []) if isinstance(item, dict)]
@@ -511,6 +517,7 @@ class Team2RedTeamExpert(ExpertModule):
             "protocol_results": protocol_results,
             "surface_signal_count": len(input_package.protocol_bundle.get("threat_surface", {}).get("surface_signals", [])),
             "taxonomy": dimension_scores.get("_taxonomy", {}),
+            "prompt_source": "expert_specific_slm_prompt" if source == "slm" else "rules",
             **dimension_scores.get("_hits", {}),
         }
         if raw is not None:
