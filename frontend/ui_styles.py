@@ -37,7 +37,6 @@ def inject_styles() -> None:
 
         .hero-card,
         .section-card,
-        .sidebar-card,
         .step-card,
         .module-card,
         .metric-card,
@@ -54,7 +53,6 @@ def inject_styles() -> None:
         }
 
         .section-card,
-        .sidebar-card,
         .step-card,
         .module-card,
         .trace-card {
@@ -197,12 +195,6 @@ def inject_styles() -> None:
             color: #64748b;
         }
 
-        .sidebar-title {
-            font-size: 1.2rem;
-            font-weight: 800;
-            color: #0f172a;
-        }
-
         .card-flush {
             margin-bottom: 0;
         }
@@ -221,8 +213,52 @@ def inject_styles() -> None:
             font-weight: 800;
         }
 
+        .field-label {
+            color: #0f172a;
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin: 0.15rem 0 0.35rem 0;
+        }
+
+        .field-help {
+            color: #64748b;
+            font-size: 0.95rem;
+            line-height: 1.55;
+            margin: 0.25rem 0 0.95rem 0;
+        }
+
         .trace-card pre {
             white-space: pre-wrap;
+        }
+
+        div[data-testid="stLayoutWrapper"] > div[data-testid="stVerticalBlock"]:has(> div[data-testid="stElementContainer"] [data-testid="stMarkdownContainer"] > .card-title),
+        div[data-testid="stLayoutWrapper"] > div[data-testid="stVerticalBlock"]:has(> div[data-testid="stElementContainer"] [data-testid="stMarkdownContainer"] > .hero-eyebrow) {
+            background: rgba(255, 252, 247, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            border-radius: 22px;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+            padding: 1.1rem 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .stRadio [data-baseweb="radio"] [data-testid="stMarkdownContainer"] p,
+        .stExpander summary [data-testid="stMarkdownContainer"] p {
+            color: #0f172a !important;
+        }
+
+        .stTextInput input,
+        .stTextArea textarea {
+            color: #0f172a !important;
+            -webkit-text-fill-color: #0f172a !important;
+        }
+
+        .stTextInput input::placeholder,
+        .stTextArea textarea::placeholder {
+            color: #94a3b8 !important;
+            -webkit-text-fill-color: #94a3b8 !important;
+            opacity: 1;
         }
 
         .stButton > button {

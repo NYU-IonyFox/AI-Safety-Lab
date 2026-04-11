@@ -59,12 +59,18 @@ def _sample_transcript() -> None:
     st.session_state.transcript_input = "User: Summarize the requested task.\nAssistant: I can summarize the task and explain the safety checks."
 
 
-def _render_card(title: str, lines: list[str]) -> None:
-    st.markdown("<div class='sidebar-card'>", unsafe_allow_html=True)
-    st.markdown(f"**{title}**")
-    for line in lines:
-        st.markdown(f"- {line}")
-    st.markdown("</div>", unsafe_allow_html=True)
+def _render_card_header(title: str, copy: str | None = None) -> None:
+    st.markdown(f'<h3 class="card-title">{title}</h3>', unsafe_allow_html=True)
+    if copy:
+        st.markdown(f'<p class="body-copy">{copy}</p>', unsafe_allow_html=True)
+
+
+def _render_field_label(label: str) -> None:
+    st.markdown(f'<div class="field-label">{label}</div>', unsafe_allow_html=True)
+
+
+def _render_field_help(copy: str) -> None:
+    st.markdown(f'<p class="field-help">{copy}</p>', unsafe_allow_html=True)
 
 
 def render_sidebar(app_title: str, app_subtitle: str) -> None:
@@ -72,36 +78,10 @@ def render_sidebar(app_title: str, app_subtitle: str) -> None:
     _ensure_state()
 
     with st.sidebar:
-        st.markdown(
-            f"""
-            <div class="sidebar-card">
-                <div class="hero-eyebrow">Stakeholder intake</div>
-                <div class="sidebar-title">{app_title}</div>
-                <div class="body-copy">{app_subtitle}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        current_workflow = st.session_state.get("workflow_mode", "Repository-only")
-        current_source = st.session_state.get("repository_source_label", "Public GitHub repository (recommended)")
-        _render_card(
-            "Current state",
-            [
-                f"Workflow: {current_workflow}",
-                f"Repository source: {current_source if current_workflow != 'Behavior-only' else 'Not used'}",
-                f"Page: {st.session_state.get('current_page', 'input')}",
-            ],
-        )
-
-        _render_card(
-            "Quick notes",
-            [
-                "Repository-only, Behavior-only, and Hybrid all stay on the same intake path.",
-                "Sample buttons preload state and keep the current form shape intact.",
-                "Advanced settings are stored in session state and reused on submit.",
-            ],
-        )
+        st.caption("Stakeholder intake")
+        st.markdown(f"### {app_title}")
+        st.write(app_subtitle)
+        st.divider()
 
         st.markdown("**Navigation**")
         nav_left, nav_right = st.columns(2)
@@ -114,6 +94,7 @@ def render_sidebar(app_title: str, app_subtitle: str) -> None:
             if st.button("Result", use_container_width=True, disabled=not has_result):
                 st.session_state.current_page = "result"
                 st.rerun()
+        st.divider()
 
         st.markdown("**Advanced settings**")
         st.text_input(
@@ -132,6 +113,32 @@ def render_sidebar(app_title: str, app_subtitle: str) -> None:
             key="target_model_input",
         )
         st.caption("Use target probing only if you want the system to generate prompts against a live or test endpoint.")
+        st.divider()
+
+        current_workflow = st.session_state.get("workflow_mode", "Repository-only")
+        current_source = st.session_state.get("repository_source_label", "Public GitHub repository (recommended)")
+        st.markdown("**Current state**")
+        st.markdown(
+            "\n".join(
+                [
+                    f"- Workflow: {current_workflow}",
+                    f"- Repository source: {current_source if current_workflow != 'Behavior-only' else 'Not used'}",
+                    f"- Page: {st.session_state.get('current_page', 'input')}",
+                ]
+            )
+        )
+        st.divider()
+
+        st.markdown("**Quick notes**")
+        st.markdown(
+            "\n".join(
+                [
+                    "- Repository-only, Behavior-only, and Hybrid all stay on the same intake path.",
+                    "- Sample buttons preload state and keep the current form shape intact.",
+                    "- Advanced settings are stored in session state and reused on submit.",
+                ]
+            )
+        )
 
 
 def _render_hero(app_title: str, app_subtitle: str) -> None:
@@ -190,82 +197,107 @@ def _render_submission_controls(
     workflow_options: list[str],
     repository_source_options: dict[str, str],
 ) -> tuple[str, str, str, str, str, str]:
-    st.markdown("<div class='section-card'>", unsafe_allow_html=True)
-    st.subheader("Choose review mode")
-    workflow_label = st.radio("Workflow", workflow_options, horizontal=True, key="workflow_mode")
-    st.caption("Repository-only reviews a codebase, Behavior-only reviews a transcript or conversation log, and Hybrid combines both.")
+    with st.container(border=True):
+        _render_card_header(
+            "Choose review mode",
+            "Configure the evidence source first, then run the same three-expert council flow used throughout the lab.",
+        )
 
-    sample_col, sample_transcript_col = st.columns(2)
-    with sample_col:
-        if st.button("Load sample public repo", use_container_width=True):
-            _sample_public_repo()
-            st.rerun()
-    with sample_transcript_col:
-        if st.button("Load sample transcript", use_container_width=True):
-            _sample_transcript()
-            st.rerun()
-    st.caption("Use the sample buttons to preview Repository-only or Behavior-only without typing everything from scratch.")
-
-    source_type = "github_url"
-    github_url = ""
-    local_path = ""
-    transcript_text = ""
-    source_label = st.session_state.get("repository_source_label", next(iter(repository_source_options)))
-
-    if workflow_label in {"Repository-only", "Hybrid"}:
-        source_label = st.radio(
-            "Repository source",
-            list(repository_source_options.keys()),
+        _render_field_label("Workflow")
+        workflow_label = st.radio(
+            "Workflow",
+            workflow_options,
             horizontal=True,
-            key="repository_source_label",
+            key="workflow_mode",
+            label_visibility="collapsed",
         )
-        source_type = repository_source_options[source_label]
-        st.caption("Repository-only uses one repository source. Hybrid combines that repository with a transcript.")
+        _render_field_help(
+            "Repository-only reviews a codebase, Behavior-only reviews a transcript or conversation log, and Hybrid combines both."
+        )
 
-        if source_type == "github_url":
-            github_url = st.text_input(
-                "GitHub URL",
-                value=st.session_state.get("github_url_input", DEFAULT_GITHUB_TARGET),
-                placeholder="https://github.com/owner/repository",
-                key="github_url_input",
+        sample_col, sample_transcript_col = st.columns(2)
+        with sample_col:
+            if st.button("Load sample public repo", use_container_width=True):
+                _sample_public_repo()
+                st.rerun()
+        with sample_transcript_col:
+            if st.button("Load sample transcript", use_container_width=True):
+                _sample_transcript()
+                st.rerun()
+        _render_field_help("Use the sample buttons to preview Repository-only or Behavior-only without typing everything from scratch.")
+
+        source_type = "github_url"
+        github_url = ""
+        local_path = ""
+        transcript_text = ""
+        source_label = st.session_state.get("repository_source_label", next(iter(repository_source_options)))
+
+        if workflow_label in {"Repository-only", "Hybrid"}:
+            _render_field_label("Repository source")
+            source_label = st.radio(
+                "Repository source",
+                list(repository_source_options.keys()),
+                horizontal=True,
+                key="repository_source_label",
+                label_visibility="collapsed",
             )
-            st.caption("Recommended for the smoothest evaluation flow. Paste a public repository link and run the review.")
-        else:
-            local_path = st.text_input(
-                "Local folder path on the backend machine",
-                value=st.session_state.get("local_path_input", DEFAULT_LOCAL_TARGET),
-                placeholder="/absolute/path/to/repository",
-                key="local_path_input",
+            source_type = repository_source_options[source_label]
+            _render_field_help("Repository-only uses one repository source. Hybrid combines that repository with a transcript.")
+
+            if source_type == "github_url":
+                _render_field_label("GitHub URL")
+                github_url = st.text_input(
+                    "GitHub URL",
+                    value=st.session_state.get("github_url_input", DEFAULT_GITHUB_TARGET),
+                    placeholder="https://github.com/owner/repository",
+                    key="github_url_input",
+                    label_visibility="collapsed",
+                )
+                _render_field_help("Recommended for the smoothest evaluation flow. Paste a public repository link and run the review.")
+            else:
+                _render_field_label("Local folder path on the backend machine")
+                local_path = st.text_input(
+                    "Local folder path on the backend machine",
+                    value=st.session_state.get("local_path_input", DEFAULT_LOCAL_TARGET),
+                    placeholder="/absolute/path/to/repository",
+                    key="local_path_input",
+                    label_visibility="collapsed",
+                )
+                _render_field_help("Use this for local debugging or offline review on the same machine as the backend.")
+
+        if workflow_label in {"Behavior-only", "Hybrid"}:
+            _render_field_label("Behavior transcript / conversation")
+            transcript_text = st.text_area(
+                "Behavior transcript / conversation",
+                value=st.session_state.get("transcript_input", DEFAULT_TRANSCRIPT),
+                height=180,
+                key="transcript_input",
+                placeholder="User: ...\nAssistant: ...",
+                label_visibility="collapsed",
             )
-            st.caption("Use this for local debugging or offline review on the same machine as the backend.")
+            _render_field_help("First-time tip: use speaker labels when you have them. The text is mapped to the existing `conversation` payload.")
+            if workflow_label == "Behavior-only":
+                _render_field_help("Leave repository fields blank for Behavior-only; the evaluation will run on the transcript only.")
+            else:
+                _render_field_help("Hybrid uses both the repository and the transcript in one evaluation.")
 
-    if workflow_label in {"Behavior-only", "Hybrid"}:
-        transcript_text = st.text_area(
-            "Behavior transcript / conversation",
-            value=st.session_state.get("transcript_input", DEFAULT_TRANSCRIPT),
-            height=180,
-            key="transcript_input",
-            placeholder="User: ...\nAssistant: ...",
-        )
-        st.caption("First-time tip: use speaker labels when you have them. The text is mapped to the existing `conversation` payload.")
-        if workflow_label == "Behavior-only":
-            st.caption("Leave repository fields blank for Behavior-only; the evaluation will run on the transcript only.")
-        else:
-            st.caption("Hybrid uses both the repository and the transcript in one evaluation.")
-
-    with st.expander("Optional labels", expanded=False):
-        target_name = st.text_input(
-            "Display name",
-            value=st.session_state.get("target_name_input", "Submitted Repository"),
-            key="target_name_input",
-        )
-        description = st.text_area(
-            "Short description",
-            value=st.session_state.get("description_input", DEFAULT_DESCRIPTION),
-            height=90,
-            key="description_input",
-        )
-    st.markdown("</div>", unsafe_allow_html=True)
+        with st.expander("Optional labels", expanded=False):
+            _render_field_help("These labels appear in the stakeholder report and saved artifacts.")
+            _render_field_label("Display name")
+            st.text_input(
+                "Display name",
+                value=st.session_state.get("target_name_input", "Submitted Repository"),
+                key="target_name_input",
+                label_visibility="collapsed",
+            )
+            _render_field_label("Short description")
+            st.text_area(
+                "Short description",
+                value=st.session_state.get("description_input", DEFAULT_DESCRIPTION),
+                height=90,
+                key="description_input",
+                label_visibility="collapsed",
+            )
 
     return workflow_label, source_type, github_url, local_path, transcript_text, source_label
 
@@ -292,13 +324,15 @@ def render_input_page(
         )
 
     with right:
-        st.markdown("<div class='section-card'>", unsafe_allow_html=True)
-        st.subheader("What the user will see")
-        st.markdown("- Submission summary grounded in the repository, transcript, or both")
-        st.markdown("- Three distinct expert assessments")
-        st.markdown("- Explicit arbitration rule for APPROVE / REVIEW / REJECT")
-        st.markdown("- Downloadable stakeholder report and JSON archive")
-        st.markdown("</div>", unsafe_allow_html=True)
+        with st.container(border=True):
+            _render_card_header(
+                "Result page structure",
+                "The result view opens as a report-style dashboard with the same section order used by the actual evaluation output.",
+            )
+            st.markdown("- Submission summary and evidence snapshot")
+            st.markdown("- Repository evidence and behavior evidence when available")
+            st.markdown("- Expert modules followed by council synthesis")
+            st.markdown("- Artifacts and raw API response for traceability")
 
     target_name = st.session_state.get("target_name_input", "Submitted Repository")
     description = st.session_state.get("description_input", DEFAULT_DESCRIPTION)
@@ -306,7 +340,14 @@ def render_input_page(
     target_endpoint = st.session_state.get("target_endpoint_input", "")
     target_model = st.session_state.get("target_model_input", "")
 
-    if st.button("Run evaluation", use_container_width=True):
+    with st.container(border=True):
+        _render_card_header(
+            "Run evaluation",
+            "Submit the intake package to the backend and open the council dashboard when the evaluation completes.",
+        )
+        submitted = st.button("Run evaluation", use_container_width=True)
+
+    if submitted:
         if workflow_label in {"Repository-only", "Hybrid"} and source_type == "local_path" and not local_path.strip():
             st.warning("Please provide a local path.")
             return
