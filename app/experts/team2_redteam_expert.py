@@ -462,11 +462,18 @@ class Team2RedTeamExpert(ExpertModule):
 
         repository_summary = input_package.repository_summary
         threat_surface = input_package.protocol_bundle.get("threat_surface", {})
+        route_inventory = [item for item in threat_surface.get("route_inventory", []) if isinstance(item, dict)]
+        public_upload_paths = [str(item.get("path", "")).strip() for item in route_inventory if item.get("has_upload") and not item.get("auth_guarded", False)]
         if int(threat_surface.get("public_upload_route_count", 0)) > 0:
-            findings.append("Red-team lens: unauthenticated upload routes enable practical prompt-injection and malicious payload chains.")
+            if public_upload_paths:
+                findings.append(
+                    f"Red-team lens: public upload route(s) {', '.join(public_upload_paths[:2])} enable practical prompt-injection and hostile file-delivery chains."
+                )
+            else:
+                findings.append("Red-team lens: unauthenticated upload routes enable practical prompt-injection and malicious payload chains.")
         if int(threat_surface.get("external_model_route_count", 0)) > 0:
             findings.append("Red-team lens: external model calls from request paths increase disclosure and exfiltration risk.")
-        if repository_summary is not None and repository_summary.llm_backends:
+        if repository_summary is not None and repository_summary.llm_backends and int(threat_surface.get("external_model_route_count", 0)) == 0:
             findings.append(f"Red-team lens: external model dependencies present ({', '.join(repository_summary.llm_backends)}).")
 
         target_name = repository_summary.target_name if repository_summary is not None else input_package.context.agent_name

@@ -154,6 +154,11 @@ def inject_styles() -> None:
 
 def ensure_state() -> None:
     st.session_state.setdefault("evaluation_result", None)
+    st.session_state.setdefault("source_type_label", "Public GitHub repository (recommended)")
+    st.session_state.setdefault("github_url_input", DEFAULT_GITHUB_TARGET)
+    st.session_state.setdefault("local_path_input", DEFAULT_LOCAL_TARGET)
+    st.session_state.setdefault("target_name_input", "Submitted Repository")
+    st.session_state.setdefault("description_input", DEFAULT_DESCRIPTION)
 
 
 def tone_for_decision(decision: str) -> str:
@@ -384,20 +389,40 @@ def render_submission_form() -> None:
             "Public GitHub repository (recommended)": "github_url",
             "Local folder on this machine": "local_path",
         }
-        source_label = st.radio("Choose what to review", list(source_options.keys()), horizontal=True)
+        sample_col, spacer_col = st.columns([1, 2])
+        with sample_col:
+            if st.button("Load sample public repo", use_container_width=True):
+                st.session_state.source_type_label = "Public GitHub repository (recommended)"
+                st.session_state.github_url_input = "https://github.com/openai/openai-quickstart-python"
+                st.session_state.target_name_input = "OpenAI Quickstart"
+                st.session_state.description_input = "Small public Python quickstart repository that calls an external LLM API."
+        with spacer_col:
+            st.caption("Use the sample button to preview a full result without typing a repository link.")
+
+        source_label = st.radio("Choose what to review", list(source_options.keys()), horizontal=True, key="source_type_label")
         source_type = source_options[source_label]
         github_url = ""
         local_path = ""
         if source_type == "github_url":
-            github_url = st.text_input("GitHub URL", value=DEFAULT_GITHUB_TARGET, placeholder="https://github.com/owner/repository")
+            github_url = st.text_input(
+                "GitHub URL",
+                value=DEFAULT_GITHUB_TARGET,
+                placeholder="https://github.com/owner/repository",
+                key="github_url_input",
+            )
             st.caption("Recommended for the smoothest evaluation flow. Paste a public repository link and run the review.")
         else:
-            local_path = st.text_input("Local folder path", value=DEFAULT_LOCAL_TARGET, placeholder="/absolute/path/to/repository")
+            local_path = st.text_input(
+                "Local folder path on the backend machine",
+                value=DEFAULT_LOCAL_TARGET,
+                placeholder="/absolute/path/to/repository",
+                key="local_path_input",
+            )
             st.caption("Use this for local debugging or offline review on the same machine as the backend.")
 
         with st.expander("Optional labels", expanded=False):
-            target_name = st.text_input("Display name", value="Submitted Repository")
-            description = st.text_area("Short description", value=DEFAULT_DESCRIPTION, height=90)
+            target_name = st.text_input("Display name", value="Submitted Repository", key="target_name_input")
+            description = st.text_area("Short description", value=DEFAULT_DESCRIPTION, height=90, key="description_input")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with right:

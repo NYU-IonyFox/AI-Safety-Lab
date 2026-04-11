@@ -35,5 +35,16 @@ packages = [
   "app.reporting",
   "app.slm",
   "app.targets",
+  "model_assets",
+  "model_assets.benchmark_cases",
+  "model_assets.council",
+  "model_assets.schemas",
   "services",
+]
+
+[tool.setuptools.package-data]
+model_assets = [
+  "benchmark_cases/*.json",
+  "prompts/*.txt",
+  "schemas/*.json",
 ]

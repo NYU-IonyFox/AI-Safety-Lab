@@ -137,9 +137,11 @@ class Team1PolicyExpert(ExpertModule):
             if repo.framework == "Flask":
                 findings.append("Policy lens: Flask request handlers should be paired with documented access control, intake policy, and abuse-response controls.")
             if repo.upload_surfaces:
-                findings.append("Policy lens: file-upload intake exists, so retention, moderation, and escalation controls should be explicit.")
+                upload_path = next((path for path in repo.entrypoints if "upload" in path.lower()), "") or "the upload workflow"
+                findings.append(f"Policy lens: `{upload_path}` accepts user-controlled content, so retention, moderation, and escalation controls should be explicit.")
             if "no_explicit_auth" in repo.auth_signals:
-                findings.append("Policy lens: no explicit authentication or authorization layer is visible around the main analysis workflow.")
+                exposed_path = next((path for path in repo.entrypoints if "upload" in path.lower()), "") or (repo.entrypoints[0] if repo.entrypoints else "the main analysis workflow")
+                findings.append(f"Policy lens: no explicit authentication or authorization layer is visible around `{exposed_path}`.")
             if repo.llm_backends:
                 findings.append(f"Policy lens: external AI dependencies are in scope for accountability and third-party processing review ({', '.join(repo.llm_backends)}).")
             if any("default_secret_key" in signal for signal in repo.secret_signals):

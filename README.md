@@ -102,8 +102,8 @@ No live API key is required for the default quickstart path.
 ### Step 1 — Clone and install
 
 ```bash
-git clone <YOUR_REPOSITORY_URL>
-cd ai-safety-lab
+git clone https://github.com/Andyism1014/AI-Safety-Lab.git
+cd AI-Safety-Lab
 python -m venv .venv
 source .venv/bin/activate      # Windows: .venv\Scripts\activate
 python -m pip install --upgrade pip

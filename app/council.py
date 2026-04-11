@@ -260,15 +260,37 @@ def _build_recommended_actions(experts: list[ExpertVerdict], decision: str) -> l
 
     team3 = verdicts.get("team3_risk_expert")
     if team3 and team3.risk_score >= COUNCIL_REVIEW_THRESHOLD:
-        actions.append("Harden the deployment boundary: review upload, execution, and external-model integration paths before approval.")
+        upload_path = _team2_public_upload_path(verdicts.get("team2_redteam_expert"))
+        if upload_path:
+            actions.append(
+                f"Harden the deployment boundary around `{upload_path}`: require authentication, isolate media-processing steps, and review how uploaded content reaches external AI services."
+            )
+        else:
+            actions.append("Harden the deployment boundary: review upload, execution, and external-model integration paths before approval.")
 
     team2 = verdicts.get("team2_redteam_expert")
     if team2 and team2.risk_score >= COUNCIL_REVIEW_THRESHOLD:
-        actions.append("Reduce abuse-path exposure by validating unauthenticated entry points, adversarial prompt handling, and misuse safeguards.")
+        owasp = _team2_taxonomy(team2, "owasp_categories")
+        mitre = _team2_taxonomy(team2, "mitre_tactics")
+        taxonomy_hint = []
+        if owasp:
+            taxonomy_hint.append(f"OWASP focus: {', '.join(owasp[:2])}")
+        if mitre:
+            taxonomy_hint.append(f"MITRE focus: {', '.join(mitre[:2])}")
+        suffix = f" ({'; '.join(taxonomy_hint)})" if taxonomy_hint else ""
+        actions.append(
+            f"Reduce abuse-path exposure by validating unauthenticated entry points, hostile file handling, and prompt-injection safeguards before approval{suffix}."
+        )
 
     team1 = verdicts.get("team1_policy_expert")
     if team1 and team1.risk_score >= COUNCIL_REVIEW_THRESHOLD:
-        actions.append("Document policy controls, access control, and accountability evidence so governance claims match the actual runtime design.")
+        policy_signal = _team1_policy_focus(team1)
+        if policy_signal:
+            actions.append(
+                f"Document policy controls, access control, and accountability evidence so governance claims match the runtime design, especially around {policy_signal}."
+            )
+        else:
+            actions.append("Document policy controls, access control, and accountability evidence so governance claims match the actual runtime design.")
 
     if decision == "APPROVE" and not actions:
         actions.append("Keep the current controls stable and preserve the documented evidence trail used for this approval.")
@@ -279,3 +301,47 @@ def _build_recommended_actions(experts: list[ExpertVerdict], decision: str) -> l
 
 def _expert_label(expert_name: str) -> str:
     return EXPERT_LABELS.get(expert_name, expert_name)
+
+
+def _team2_public_upload_path(verdict: ExpertVerdict | None) -> str:
+    if verdict is None:
+        return ""
+    evidence = verdict.evidence or {}
+    surface = evidence.get("redteam_surface", {})
+    if not isinstance(surface, dict):
+        return ""
+    candidates: list[str] = []
+    for route in surface.get("route_inventory", []):
+        if not isinstance(route, dict):
+            continue
+        if route.get("has_upload") and not route.get("auth_guarded", False):
+            path = str(route.get("path", "")).strip()
+            if path:
+                candidates.append(path)
+    prioritized = [path for path in candidates if "upload" in path.lower()]
+    if prioritized:
+        return prioritized[0]
+    return candidates[0] if candidates else ""
+
+
+def _team2_taxonomy(verdict: ExpertVerdict | None, key: str) -> list[str]:
+    if verdict is None:
+        return []
+    evidence = verdict.evidence or {}
+    taxonomy = evidence.get("taxonomy", {})
+    if not isinstance(taxonomy, dict):
+        return []
+    return [str(item) for item in taxonomy.get(key, []) if str(item).strip()]
+
+
+def _team1_policy_focus(verdict: ExpertVerdict | None) -> str:
+    if verdict is None:
+        return ""
+    evidence = verdict.evidence or {}
+    controls = [str(item) for item in evidence.get("policy_scope_controls", []) if str(item).strip()]
+    if controls:
+        return controls[0].rstrip(".").lower()
+    for item in evidence.get("policy_scope_evidence", []):
+        if isinstance(item, dict) and item.get("signal"):
+            return str(item["signal"]).rstrip(".").lower()
+    return ""
