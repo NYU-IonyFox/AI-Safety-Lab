@@ -78,6 +78,7 @@ class Team1PolicyExpert(ExpertModule):
         )
 
     def assess(self, request: EvaluationRequest) -> ExpertVerdict:
+        """Score governance, accountability, and control gaps for the submitted repository."""
         if self._should_use_slm():
             try:
                 return self._assess_with_slm(request)

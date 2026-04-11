@@ -46,6 +46,7 @@ class Team3RiskExpert(ExpertModule):
     ]
 
     def assess(self, request: EvaluationRequest) -> ExpertVerdict:
+        """Score deployment-boundary and protocol-level system risk for the repository."""
         backend = os.getenv("SLM_BACKEND", "mock").strip().lower()
         input_package = self._build_input_package(request)
         if TEAM3_REQUIRE_LOCAL_SLM and backend not in {"local", "gamma4", "local-gamma4", "local_http", "local-http"}:

@@ -18,9 +18,8 @@ EXPERT_LABELS = {
     "team3_risk_expert": "Team3 system-risk expert",
 }
 
-
-
 def synthesize_council(experts: list[ExpertVerdict]) -> CouncilResult:
+    """Apply the named arbitration matrix to expert verdicts and produce an auditable council result."""
     if not experts:
         return CouncilResult(
             decision="REVIEW",
@@ -156,8 +155,6 @@ def synthesize_council(experts: list[ExpertVerdict]) -> CouncilResult:
         decision_rule_version=COUNCIL_DECISION_RULE_VERSION,
     )
 
-
-
 def _build_consensus_summary(experts: list[ExpertVerdict], decision: str, disagreement: float) -> str:
     if not experts:
         return "No council summary available."
@@ -185,8 +182,6 @@ def _build_consensus_summary(experts: list[ExpertVerdict], decision: str, disagr
             f"for an automatic reject across all experts."
         )
     return "The council found broadly consistent low-to-moderate risk signals and approved the submission without escalation."
-
-
 
 def _build_cross_expert_critique(
     experts: list[ExpertVerdict],
@@ -251,8 +246,6 @@ def _build_cross_expert_critique(
         )
 
     return critique
-
-
 
 def _build_recommended_actions(experts: list[ExpertVerdict], decision: str) -> list[str]:
     verdicts = {verdict.expert_name: verdict for verdict in experts}

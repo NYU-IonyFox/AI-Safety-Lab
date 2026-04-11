@@ -9,8 +9,24 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 "$PYTHON_BIN" -m uvicorn app.main:app --port 8080 &
 BACKEND_PID=$!
 
+for _ in $(seq 1 15); do
+  if curl -fsS http://127.0.0.1:8080/health >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
+
+curl -fsS http://127.0.0.1:8080/health >/dev/null
+
 "$PYTHON_BIN" -m streamlit run frontend/streamlit_app.py --server.headless true &
 FRONTEND_PID=$!
+
+for _ in $(seq 1 15); do
+  if curl -fsS http://127.0.0.1:8501/ >/dev/null 2>&1; then
+    break
+  fi
+  sleep 1
+done
 
 cleanup() {
   kill "$BACKEND_PID" "$FRONTEND_PID" 2>/dev/null || true

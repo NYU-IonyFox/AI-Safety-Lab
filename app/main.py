@@ -18,6 +18,7 @@ def root() -> dict[str, str]:
         "health_url": "/health",
         "smoke_test_url": "/smoke-test",
         "evaluation_endpoint": "/v1/evaluations",
+        "cli_hint": "Run `ai-safety-lab-eval --github-url https://github.com/owner/repository` for a no-schema CLI path.",
         "frontend_hint": "Run `streamlit run frontend/streamlit_app.py` for the stakeholder-facing UI.",
     }
 

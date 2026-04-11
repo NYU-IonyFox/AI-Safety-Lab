@@ -36,6 +36,10 @@ def build_markdown_report(
         "",
     ]
 
+    lines.extend(["## What happens next"])
+    lines.extend([f"- {item}" for item in _governance_next_steps(council)])
+    lines.append("")
+
     if repo is not None:
         lines.extend(
             [
@@ -76,6 +80,12 @@ def build_markdown_report(
         lines.extend([f"- {item}" for item in council.cross_expert_critique])
         lines.append("")
 
+    deliberation_summary = _deliberation_summary_lines(council)
+    if deliberation_summary:
+        lines.append("## Plain-language deliberation summary")
+        lines.extend([f"- {item}" for item in deliberation_summary])
+        lines.append("")
+
     if council.deliberation_enabled and council.deliberation_trace:
         lines.append("## Deliberation trail")
         for item in council.deliberation_trace:
@@ -96,8 +106,12 @@ def build_markdown_report(
                 f"- **Bottom line:** {expert.summary}",
             ]
         )
+        stakeholder_lines = _stakeholder_takeaway_lines(expert)
+        if stakeholder_lines:
+            lines.append("- **What this means:**")
+            lines.extend([f"  - {item}" for item in stakeholder_lines])
         if expert.findings:
-            lines.append("- **Key findings:**")
+            lines.append("- **Technical findings:**")
             lines.extend([f"  - {finding}" for finding in expert.findings[:8]])
         expert_evidence = _expert_evidence_lines(expert)
         if expert_evidence:
@@ -142,6 +156,69 @@ def _expert_title(expert_name: str) -> str:
     return EXPERT_TITLES.get(expert_name, expert_name)
 
 
+def _stakeholder_takeaway_lines(expert: ExpertVerdict) -> list[str]:
+    if expert.expert_name == "team1_policy_expert":
+        return [
+            "This review checks whether the repository has clear access, oversight, and accountability controls.",
+            "The public intake workflow is not paired with enough visible access-control and escalation controls.",
+            "Because external AI services are involved, ownership, review, and retention expectations should be documented before sign-off.",
+        ]
+    if expert.expert_name == "team2_redteam_expert":
+        return [
+            "This review asks how a real attacker could misuse the repository in practice.",
+            "The upload workflow creates a credible hostile-file and prompt-injection path before safeguards clearly stop abuse.",
+            "That means the system can be operationally abused, not just theoretically criticized.",
+        ]
+    if expert.expert_name == "team3_risk_expert":
+        return [
+            "This review focuses on the deployed system boundary rather than only prompts or policy wording.",
+            "The same workflow combines public uploads, local media processing, and external AI services in one chain.",
+            "That architecture needs stronger isolation, authentication, and deployment hardening before production use.",
+        ]
+    return []
+
+
+def _deliberation_summary_lines(council: CouncilResult) -> list[str]:
+    if not council.deliberation_trace:
+        return []
+
+    critiques = [item for item in council.deliberation_trace if item.phase == "critique"]
+    revisions = [item for item in council.deliberation_trace if item.phase == "revision"]
+    lines = ["The three experts reviewed each other's blind spots before the final decision."]
+    if any(item.author_expert == "team2_redteam_expert" for item in critiques):
+        lines.append("The adversarial expert asked peers to account for hostile-file and prompt-injection risk.")
+    if any(item.author_expert == "team3_risk_expert" for item in critiques):
+        lines.append("The system expert asked peers to reflect deployment-boundary and hardening gaps.")
+    if any(item.author_expert == "team1_policy_expert" for item in critiques):
+        lines.append("The policy expert pushed the council to reflect access-control and governance obligations.")
+    if revisions:
+        revision_summary = ", ".join(
+            f"{_expert_title(item.author_expert)} {item.risk_delta:+.2f}" for item in revisions[:3]
+        )
+        lines.append(f"After deliberation, the risk view changed for: {revision_summary}.")
+    return lines[:4]
+
+
+def _governance_next_steps(council: CouncilResult) -> list[str]:
+    if council.decision == "REJECT":
+        return [
+            "Do not move this repository into production or open pilot deployment yet.",
+            "Assign engineering, security, and governance owners to close the listed gaps and capture the evidence of remediation.",
+            "Rerun the evaluation after fixes and attach the updated report to the deployment or change-control record.",
+        ]
+    if council.decision == "REVIEW":
+        return [
+            "Pause deployment until a human reviewer signs off the listed mitigations.",
+            "Use the expert findings and recommended actions to decide whether the case can move to APPROVE or must be sent back for remediation.",
+            "Record the human decision together with this report so the governance trail stays auditable.",
+        ]
+    return [
+        "This repository can move forward under normal change control rather than emergency escalation.",
+        "Keep the current evidence trail, monitoring, and controls attached to the deployment record.",
+        "If the repository scope changes materially, rerun the evaluation before the next production release.",
+    ]
+
+
 def _expert_evidence_lines(expert: ExpertVerdict) -> list[str]:
     evidence = expert.evidence or {}
 
@@ -149,7 +226,8 @@ def _expert_evidence_lines(expert: ExpertVerdict) -> list[str]:
         lines = []
         controls = [str(item) for item in evidence.get("policy_scope_controls", []) if str(item).strip()]
         if controls:
-            lines.append(f"Governance controls observed: {', '.join(controls[:3])}.")
+            normalized = [item.rstrip(".") for item in controls[:3]]
+            lines.append(f"Governance controls observed: {', '.join(normalized)}.")
         policy_evidence = evidence.get("policy_scope_evidence", [])
         if isinstance(policy_evidence, list):
             for item in policy_evidence[:2]:

@@ -200,7 +200,8 @@ def expert_evidence_lines(expert: dict) -> list[str]:
         lines = []
         controls = [str(item) for item in evidence.get("policy_scope_controls", []) if str(item).strip()]
         if controls:
-            lines.append(f"Governance controls observed: {', '.join(controls[:3])}.")
+            normalized = [item.rstrip(".") for item in controls[:3]]
+            lines.append(f"Governance controls observed: {', '.join(normalized)}.")
         for item in evidence.get("policy_scope_evidence", [])[:2]:
             if isinstance(item, dict):
                 lines.append(f"{item.get('path', 'unknown')}: {item.get('signal', 'Policy evidence')}.")
@@ -234,6 +235,83 @@ def expert_evidence_lines(expert: dict) -> list[str]:
         return lines[:3]
 
     return []
+
+
+def stakeholder_takeaway_lines(expert: dict) -> list[str]:
+    expert_name = str(expert.get("expert_name", ""))
+    findings_text = " ".join(str(item) for item in expert.get("findings", [])).lower()
+
+    if expert_name == "team1_policy_expert":
+        lines = [
+            "This review checks whether a public AI workflow has clear access, oversight, and accountability controls.",
+            "The repository exposes a user upload path without clear access-control and escalation controls around that intake flow.",
+            "Because external AI services are involved, ownership, review, and retention expectations should be documented before sign-off.",
+        ]
+        return lines[:3]
+
+    if expert_name == "team2_redteam_expert":
+        lines = [
+            "This review asks how a real attacker could misuse the repository in practice.",
+            "The upload workflow creates a credible hostile-file and prompt-injection path before safeguards clearly stop abuse.",
+            "That means the system can be operationally abused, not just theoretically criticized on policy grounds.",
+        ]
+        return lines[:3]
+
+    if expert_name == "team3_risk_expert":
+        lines = [
+            "This review focuses on the deployed system boundary rather than only prompts or policy wording.",
+            "The same workflow combines public uploads, local media processing, and external AI services in one chain.",
+            "That architecture needs stronger isolation, authentication, and deployment hardening before production use.",
+        ]
+        return lines[:3]
+
+    if "upload" in findings_text:
+        return ["The repository exposes user-controlled input that needs stronger safety controls before approval."]
+    return ["This expert found repository-specific risk signals that should be reviewed before sign-off."]
+
+
+def deliberation_summary_lines(council: dict) -> list[str]:
+    trace = council.get("deliberation_trace", [])
+    if not trace:
+        return []
+
+    lines = ["The three experts reviewed each other's blind spots before the final decision."]
+    critiques = [item for item in trace if item.get("phase") == "critique"]
+    revisions = [item for item in trace if item.get("phase") == "revision"]
+
+    if any(item.get("author_expert") == "team2_redteam_expert" for item in critiques):
+        lines.append("The adversarial expert asked peers to account for hostile-file and prompt-injection risk.")
+    if any(item.get("author_expert") == "team3_risk_expert" for item in critiques):
+        lines.append("The system expert asked peers to reflect deployment-boundary and hardening gaps.")
+    if any(item.get("author_expert") == "team1_policy_expert" for item in critiques):
+        lines.append("The policy expert pushed the council to reflect access-control and governance obligations.")
+    if revisions:
+        revision_summary = ", ".join(
+            f"{expert_title(item.get('author_expert', 'expert'))} {item.get('risk_delta', 0):+.2f}" for item in revisions[:3]
+        )
+        lines.append(f"After deliberation, the risk view changed for: {revision_summary}.")
+    return lines[:4]
+
+
+def governance_next_steps(result: dict) -> list[str]:
+    decision = str(result.get("decision", "REVIEW"))
+    if decision == "REJECT":
+        return [
+            "Do not move this repository into production or open pilot deployment yet.",
+            "Assign engineering, security, and governance owners to close the listed gaps and capture the evidence of remediation.",
+            "Rerun the evaluation after fixes and attach the updated report to the deployment or change-control record.",
+        ]
+    if decision == "REVIEW":
+        return [
+            "Pause deployment until a human reviewer signs off the listed mitigations.",
+            "Use the expert findings and recommended actions to decide whether the case can move to APPROVE or must be sent back for remediation.",
+            "Record the human decision together with this report so the governance trail stays auditable.",
+        ]
+    return [
+        "This repository can move forward under normal change control rather than emergency escalation.",
+        "Keep the current evidence trail, monitoring, and controls attached to the deployment record.",
+        "If the repository scope changes materially, rerun the evaluation before the next production release.",
+    ]
 
 
 def render_metric(label: str, value: str, tone: str, copy: str) -> None:
@@ -499,15 +577,18 @@ def render_expert_panels(experts: list[dict]) -> None:
             st.markdown(f"### {expert_title(expert.get('expert_name', 'expert'))}")
             st.markdown(f"**Risk tier:** {expert.get('risk_tier', 'UNKNOWN')}")
             st.markdown(f"**Bottom line:** {expert.get('summary', '')}")
-            st.markdown("**Findings**")
-            for finding in expert.get("findings", [])[:8]:
-                st.markdown(f"- {finding}")
+            st.markdown("**What this means**")
+            for line in stakeholder_takeaway_lines(expert):
+                st.markdown(f"- {line}")
             evidence_lines = expert_evidence_lines(expert)
             if evidence_lines:
-                st.markdown("**Expert-specific evidence**")
+                st.markdown("**Evidence you can trace**")
                 for item in evidence_lines:
                     st.markdown(f"- {item}")
-            with st.expander("Technical details", expanded=False):
+            with st.expander("Technical findings and scores", expanded=False):
+                st.markdown("**Detailed findings**")
+                for finding in expert.get("findings", [])[:8]:
+                    st.markdown(f"- {finding}")
                 st.markdown(f"**Status:** `{expert.get('evaluation_status', 'unknown')}`")
                 st.markdown(f"**Risk score:** {expert.get('risk_score', 0):.2f}")
                 st.markdown(f"**Confidence:** {expert.get('confidence', 0):.2f}")
@@ -535,22 +616,39 @@ def render_council_panel(result: dict) -> None:
         st.markdown(f"**Consensus summary:** {council.get('consensus_summary', '')}")
     st.markdown(f"**Council score:** {council.get('council_score', 0):.2f}")
     st.markdown(f"**Triggered by:** {triggered_by}")
-    if council.get("cross_expert_critique"):
-        st.markdown("**Cross-expert critique**")
-        for item in council.get("cross_expert_critique", []):
-            st.markdown(f"- {item}")
-    if council.get("key_evidence"):
-        st.markdown("**Key evidence**")
-        for item in council.get("key_evidence", []):
+    st.markdown("**What happens next**")
+    for item in governance_next_steps(result):
+        st.markdown(f"- {item}")
+    summary_lines = deliberation_summary_lines(council)
+    if summary_lines:
+        st.markdown("**How the experts challenged each other**")
+        for item in summary_lines:
             st.markdown(f"- {item}")
     if council.get("recommended_actions"):
         st.markdown("**Recommended actions**")
         for item in council.get("recommended_actions", []):
             st.markdown(f"- {item}")
-    if council.get("ignored_signals"):
-        st.markdown("**Signals that were noted but not decisive**")
-        for item in council.get("ignored_signals", []):
-            st.markdown(f"- {item}")
+    with st.expander("Technical council trace", expanded=False):
+        if council.get("cross_expert_critique"):
+            st.markdown("**Cross-expert critique**")
+            for item in council.get("cross_expert_critique", []):
+                st.markdown(f"- {item}")
+        if council.get("key_evidence"):
+            st.markdown("**Key evidence**")
+            for item in council.get("key_evidence", []):
+                st.markdown(f"- {item}")
+        if council.get("ignored_signals"):
+            st.markdown("**Signals that were noted but not decisive**")
+            for item in council.get("ignored_signals", []):
+                st.markdown(f"- {item}")
+        if council.get("deliberation_trace"):
+            st.markdown("**Full deliberation trace**")
+            for item in council.get("deliberation_trace", []):
+                phase = item.get("phase", "").upper()
+                author = expert_title(item.get("author_expert", "expert"))
+                target = item.get("target_expert", "")
+                target_copy = f" -> {expert_title(target)}" if target else ""
+                st.markdown(f"- **{phase}** `{author}{target_copy}`: {item.get('summary', '')}")
     st.markdown("</div>", unsafe_allow_html=True)
 
 

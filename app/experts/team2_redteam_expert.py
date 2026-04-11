@@ -141,6 +141,7 @@ class Team2RedTeamExpert(ExpertModule):
         )
 
     def assess(self, request: EvaluationRequest) -> ExpertVerdict:
+        """Score exploitability and misuse paths using the red-team lens for the repository."""
         if self._should_use_slm():
             try:
                 return self._assess_with_slm(request)

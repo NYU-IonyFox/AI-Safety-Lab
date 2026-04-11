@@ -12,6 +12,7 @@ class DeliberationResult:
 
 
 def run_deliberation(request: EvaluationRequest, verdicts: list[ExpertVerdict]) -> DeliberationResult:
+    """Run an initial -> critique -> defense/revision loop before final council synthesis."""
     repo = request.repository_summary
     trace = [
         DeliberationExchange(
@@ -46,6 +47,7 @@ def _build_critique(
     target: ExpertVerdict,
     repository_summary: RepositorySummary | None,
 ) -> DeliberationExchange | None:
+    """Generate one targeted peer critique when the author's lens finds a missing concern."""
     if repository_summary is None:
         return None
 
@@ -139,6 +141,7 @@ def _revise_verdict(
     critiques: list[DeliberationExchange],
     trace: list[DeliberationExchange],
 ) -> ExpertVerdict:
+    """Revise a verdict only when critiques introduce a concern not already covered."""
     if not critiques:
         return verdict
 
