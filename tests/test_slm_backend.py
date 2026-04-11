@@ -73,6 +73,7 @@ def test_local_hf_runner_parses_and_normalizes_generated_json_without_model_load
     assert result["findings"] == ["a"]
     assert result["evaluation_status"] == "success"
     assert result["evidence"]["service"] == "local_hf"
+    assert result["_raw_text_preview"].startswith('{"risk_score": 0.73')
 
 
 def test_local_hf_runner_warmup_surfaces_runtime_metadata(monkeypatch) -> None:

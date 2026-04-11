@@ -53,6 +53,7 @@ class LocalHFRunner(SLMRunner):
                 "Local HF model did not return a valid JSON object. "
                 f"Raw output preview: {self._preview_text(text)}"
             )
+        parsed["_raw_text_preview"] = self._preview_text(text, max_chars=600)
         return self._normalize_result(parsed)
 
     def _ensure_runtime(self) -> None:
@@ -288,7 +289,10 @@ class LocalHFRunner(SLMRunner):
         return re.sub(r"<think>.*?</think>\s*", "", text, flags=re.DOTALL | re.IGNORECASE)
 
     def _preview_text(self, text: str, max_chars: int = 240) -> str:
-        compact = " ".join(self._strip_reasoning_blocks(text).split())
+        compact = self._strip_reasoning_blocks(text).strip()
+        if compact.startswith("```"):
+            compact = compact.replace("```json", "").replace("```JSON", "").replace("```", "").strip()
+        compact = " ".join(compact.split())
         if len(compact) <= max_chars:
             return compact
         return compact[: max_chars - 3] + "..."

@@ -60,6 +60,7 @@ def main() -> None:
                 "actual_backend": expert.metadata.actual_backend,
                 "fallback_reason": expert.metadata.fallback_reason,
                 "summary": expert.summary,
+                "raw_output_preview": str(getattr(expert, "evidence", {}).get("raw", {}).get("_raw_text_preview", "")),
             }
             for expert in response.experts
         ],
@@ -81,6 +82,8 @@ def main() -> None:
         print(f"actual_backend: {expert['actual_backend']}")
         print(f"fallback_reason: {expert['fallback_reason'] or '<none>'}")
         print(f"summary: {expert['summary']}")
+        if expert["raw_output_preview"]:
+            print(f"raw_output_preview: {expert['raw_output_preview']}")
 
 
 if __name__ == "__main__":

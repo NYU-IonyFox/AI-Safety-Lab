@@ -24,4 +24,7 @@ Optional fields:
 - policy_alerts
 - violations
 
+Set evaluation_status=success whenever the repository payload provides enough evidence to make a policy judgment, even if the repository is risky.
+Use evaluation_status=degraded only when the payload is too incomplete or malformed to support a repository-grounded policy conclusion.
+
 Do not perform adversarial exploit analysis or system architecture tiering unless it directly affects governance posture.

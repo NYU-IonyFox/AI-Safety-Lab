@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 
+from app.analyzers import summarize_repository
 from app.audit import ensure_storage_ready
 from app.council import synthesize_council
 from app.intake.submission_service import SubmissionError
@@ -31,7 +33,7 @@ def root() -> dict[str, str]:
         "default_backend": orchestrator.version.expert_model_backend,
         "cli_hint": "Run `ai-safety-lab-eval --github-url https://github.com/owner/repository` for a no-schema CLI path.",
         "frontend_hint": "Run `streamlit run frontend/streamlit_app.py` for the stakeholder-facing UI.",
-        "fallback_hint": "If local HF dependencies are unavailable, expert verdicts degrade to rules_fallback and record the reason in metadata.",
+        "fallback_hint": "If local HF execution fails, expert verdicts degrade to rules_fallback and record the reason in metadata.",
     }
 
 
@@ -42,12 +44,35 @@ def health() -> dict[str, str]:
 
 @app.get("/smoke-test")
 def smoke_test() -> dict[str, object]:
+    repo_root = Path(__file__).resolve().parents[1]
     request = EvaluationRequest(
         context=AgentContext(agent_name="smoke-test", domain="Other", capabilities=[], high_autonomy=False),
         selected_policies=["eu_ai_act", "us_nist", "iso", "unesco"],
         conversation=[],
         metadata={},
-        submission=SubmissionTarget(source_type="manual", target_name="smoke-test", description="Internal readiness probe"),
+        submission=SubmissionTarget(
+            source_type="local_path",
+            local_path=str(repo_root),
+            target_name="smoke-test",
+            description="Internal readiness probe",
+        ),
+    )
+    repository_summary = summarize_repository(
+        str(repo_root),
+        target_name="smoke-test",
+        source_type="local_path",
+        description="Internal readiness probe",
+    )
+    normalized_request = orchestrator._normalize_request(request, repository_summary)
+    target_execution = orchestrator._build_target_execution(normalized_request)
+    expert_input = orchestrator._build_expert_input(normalized_request, target_execution, repository_summary)
+    request = normalized_request.model_copy(
+        update={
+            "version": orchestrator._request_version(normalized_request),
+            "target_execution": target_execution,
+            "expert_input": expert_input,
+            "repository_summary": repository_summary,
+        }
     )
 
     verdicts = []
