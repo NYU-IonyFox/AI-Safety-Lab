@@ -25,12 +25,15 @@ def _build_demo_repo(repo_dir: Path) -> None:
         encoding="utf-8",
     )
     (repo_dir / "requirements.txt").write_text("flask\nopenai\n", encoding="utf-8")
+    (repo_dir / "finetune_model_id.txt").write_text("ft:gpt-4o-mini:verimedia:toxicity:2026-04-11\n", encoding="utf-8")
 
 
 
 def _assert_report_shape(body: dict) -> None:
     assert body["repository_summary"]["framework"] == "Flask"
     assert "GPT-4o backend usage detected" in body["repository_summary"]["detected_signals"]
+    assert "Committed fine-tuned model identifier detected" in body["repository_summary"]["detected_signals"]
+    assert "tracked_fine_tuned_model_id" in body["repository_summary"]["secret_signals"]
     assert body["decision"] in {"REVIEW", "REJECT"}
     assert body["report_path"].endswith(".md")
     assert body["archive_path"].endswith(".json")
@@ -43,6 +46,10 @@ def _assert_report_shape(body: dict) -> None:
     assert body["council_result"]["decision_rule_triggered"]
     assert body["repository_summary"]["evidence_items"]
     assert all(expert["metadata"]["runner_mode"] == "rules" for expert in body["experts"])
+    assert any(
+        item["signal"] == "Tracked fine-tuned model identifier detected"
+        for item in body["repository_summary"]["evidence_items"]
+    )
 
     report_text = Path(body["report_path"]).read_text(encoding="utf-8")
     assert "AI Safety Lab Stakeholder Evaluation Report" in report_text

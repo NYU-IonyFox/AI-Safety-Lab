@@ -8,12 +8,19 @@ from app.schemas import RepositoryEvidence, RepositorySummary
 TEXT_SUFFIXES = {".py", ".md", ".txt", ".json", ".html", ".js", ".ts", ".tsx", ".yml", ".yaml", ".toml", ".env", ".example"}
 MAX_READ_BYTES = 200_000
 MAX_FILES = 80
+PRIORITY_FILE_NAMES = {
+    "readme.md": 0,
+    "app.py": 1,
+    "requirements.txt": 2,
+    ".env.example": 3,
+    "finetune_model_id.txt": 4,
+}
 
 
 def summarize_repository(repo_path: str, *, target_name: str, source_type: str, description: str = "") -> RepositorySummary:
     root = Path(repo_path).resolve()
     files = [p for p in root.rglob("*") if p.is_file()]
-    text_files = [p for p in files if p.suffix.lower() in TEXT_SUFFIXES][:MAX_FILES]
+    text_files = _select_text_files(files)
     blobs = {str(path.relative_to(root)): _safe_read(path) for path in text_files}
     combined = "\n".join(blobs.values()).lower()
 
@@ -23,9 +30,10 @@ def summarize_repository(repo_path: str, *, target_name: str, source_type: str, 
     media_modalities = _detect_media_modalities(combined)
     upload_surfaces = _detect_upload_surfaces(blobs)
     auth_signals = _detect_auth_signals(combined)
-    secret_signals = _detect_secret_signals(combined)
+    secret_signals = _detect_secret_signals(blobs, combined)
     notable_files = _notable_files(blobs)
     dependencies = _detect_dependencies(blobs)
+    tracked_model_file = _find_tracked_model_identifier(blobs)
 
     risk_notes: list[str] = []
     if framework == "Flask":
@@ -38,11 +46,13 @@ def summarize_repository(repo_path: str, *, target_name: str, source_type: str, 
         risk_notes.append("No explicit authentication layer detected around core upload and analysis flow.")
     if any(signal.startswith("default_secret_key") for signal in secret_signals):
         risk_notes.append("Default development secret key pattern detected.")
+    if tracked_model_file is not None:
+        risk_notes.append("Tracks a fine-tuned external model identifier in source control, which exposes deployment-specific configuration.")
     if any(signal.startswith("ffmpeg") or signal.startswith("moviepy") for signal in secret_signals + dependencies):
         risk_notes.append("Processes large media files through conversion/transcoding tooling.")
 
-    detected_signals = _detected_signals(framework, llm_backends, upload_surfaces, auth_signals, dependencies)
-    evidence_items = _build_evidence_items(blobs, auth_signals)
+    detected_signals = _detected_signals(framework, llm_backends, upload_surfaces, auth_signals, dependencies, tracked_model_file)
+    evidence_items = _build_evidence_items(blobs, auth_signals, tracked_model_file)
     summary = _build_summary(target_name, framework, llm_backends, media_modalities, upload_surfaces, auth_signals)
 
     return RepositorySummary(
@@ -74,6 +84,19 @@ def _safe_read(path: Path) -> str:
         return path.read_text(encoding="utf-8", errors="ignore")
     except OSError:
         return ""
+
+
+def _select_text_files(files: list[Path]) -> list[Path]:
+    candidates = [p for p in files if p.suffix.lower() in TEXT_SUFFIXES]
+    ordered = sorted(
+        candidates,
+        key=lambda path: (
+            PRIORITY_FILE_NAMES.get(path.name.lower(), 100),
+            len(path.parts),
+            str(path).lower(),
+        ),
+    )
+    return ordered[:MAX_FILES]
 
 
 def _detect_framework(combined: str) -> str:
@@ -162,14 +185,14 @@ def _detect_auth_signals(combined: str) -> list[str]:
     return signals
 
 
-def _detect_secret_signals(combined: str) -> list[str]:
+def _detect_secret_signals(blobs: dict[str, str], combined: str) -> list[str]:
     signals: list[str] = []
     if "secret_key', 'dev-key-for-development" in combined or 'secret_key", "dev-key-for-development' in combined:
         signals.append("default_secret_key_fallback")
     if "openai_api_key" in combined:
         signals.append("openai_api_key_env")
-    if "finetune_model_id.txt" in combined:
-        signals.append("fine_tuned_model_file")
+    if _find_tracked_model_identifier(blobs) is not None:
+        signals.append("tracked_fine_tuned_model_id")
     return signals
 
 
@@ -198,6 +221,7 @@ def _detected_signals(
     upload_surfaces: list[str],
     auth_signals: list[str],
     dependencies: list[str],
+    tracked_model_file: tuple[str, int, str] | None,
 ) -> list[str]:
     signals: list[str] = []
     if framework == "Flask":
@@ -210,10 +234,16 @@ def _detected_signals(
         signals.append("File upload surface detected")
     if "no_explicit_auth" in auth_signals:
         signals.append("Lack of explicit authentication layer detected")
+    if tracked_model_file is not None:
+        signals.append("Committed fine-tuned model identifier detected")
     return signals
 
 
-def _build_evidence_items(blobs: dict[str, str], auth_signals: list[str]) -> list[RepositoryEvidence]:
+def _build_evidence_items(
+    blobs: dict[str, str],
+    auth_signals: list[str],
+    tracked_model_file: tuple[str, int, str] | None,
+) -> list[RepositoryEvidence]:
     evidence: list[RepositoryEvidence] = []
 
     def add(signal: str, why_it_matters: str, *tokens: str) -> None:
@@ -257,6 +287,18 @@ def _build_evidence_items(blobs: dict[str, str], auth_signals: list[str]) -> lis
         "whisper",
         "transcribe",
     )
+    if tracked_model_file is not None:
+        path, line_number, model_identifier = tracked_model_file
+        evidence.append(
+            RepositoryEvidence(
+                path=f"{path}:{line_number}",
+                signal="Tracked fine-tuned model identifier detected",
+                why_it_matters=(
+                    f"The repository commits a live model identifier (`{model_identifier}`), which exposes deployment-specific configuration "
+                    "and couples source control to an external fine-tuned model asset."
+                ),
+            )
+        )
 
     if "no_explicit_auth" in auth_signals:
         auth_probe = _find_first_match(
@@ -285,7 +327,7 @@ def _build_evidence_items(blobs: dict[str, str], auth_signals: list[str]) -> lis
             continue
         deduped.append(item)
         seen.add(key)
-    return deduped[:6]
+    return deduped[:7]
 
 
 def _find_first_match(blobs: dict[str, str], tokens: list[str]) -> tuple[str, int] | None:
@@ -302,6 +344,20 @@ def _first_line_with(blob: str, tokens: list[str]) -> int | None:
         lowered_line = line.lower()
         if any(token in lowered_line for token in lowered_tokens):
             return index
+    return None
+
+
+def _find_tracked_model_identifier(blobs: dict[str, str]) -> tuple[str, int, str] | None:
+    for name, blob in blobs.items():
+        if Path(name).name.lower() != "finetune_model_id.txt":
+            continue
+        for index, line in enumerate(blob.splitlines(), start=1):
+            value = line.strip()
+            if not value or value.startswith("#"):
+                continue
+            if value.lower() in {"placeholder", "your-model-id", "your_model_id"}:
+                continue
+            return name, index, value
     return None
 
 
