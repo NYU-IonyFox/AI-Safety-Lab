@@ -46,12 +46,14 @@ class Team1PolicyExpert(ExpertModule):
             version=request.version,
             context=request.context,
             selected_policies=selected_policies,
+            evaluation_mode=expert_input.evaluation_mode if expert_input else request.evaluation_mode,
             source_conversation=list(expert_input.source_conversation if expert_input else request.conversation),
             enriched_conversation=list(expert_input.enriched_conversation if expert_input else request.conversation),
             attack_turns=list(expert_input.attack_turns if expert_input else []),
             target_output_turns=list(expert_input.target_output_turns if expert_input else []),
             metadata=dict(expert_input.metadata if expert_input else request.metadata),
             target_execution=expert_input.target_execution if expert_input else request.target_execution,
+            behavior_summary=expert_input.behavior_summary if expert_input else request.behavior_summary,
             submission=expert_input.submission if expert_input else request.submission,
             repository_summary=expert_input.repository_summary if expert_input else request.repository_summary,
             policy_term_index=self.POLICY_RISK_TERMS,
@@ -141,6 +143,7 @@ class Team1PolicyExpert(ExpertModule):
             evidence={
                 "source": "slm",
                 "raw": result,
+                "behavior_summary": input_package.behavior_summary.model_dump() if input_package.behavior_summary is not None else {},
                 "policy_scope_scan_mode": policy_scope.scan_mode if policy_scope is not None else "none",
                 "policy_scope_scanned_file_count": policy_scope.scanned_file_count if policy_scope is not None else 0,
                 "policy_scope_controls": policy_scope.governance_controls if policy_scope is not None else [],
@@ -154,6 +157,7 @@ class Team1PolicyExpert(ExpertModule):
         findings: list[str] = []
         violations: list[dict[str, Any]] = []
         repo = input_package.repository_summary
+        behavior = input_package.behavior_summary
         policy_scope = analyze_policy_scope(repo.resolved_path, repo) if repo is not None and repo.resolved_path else None
 
         if repo is not None:
@@ -197,6 +201,21 @@ class Team1PolicyExpert(ExpertModule):
                         "turn_indexes": [],
                     }
                 )
+
+        if behavior is not None and behavior.evaluation_mode != "repository_only":
+            if behavior.policy_signals:
+                findings.append(
+                    f"Behavior lens: observed governance-relevant behavior signals include {', '.join(behavior.policy_signals[:3])}."
+                )
+                violations.append(
+                    {
+                        "policy": "ieee",
+                        "hits": list(behavior.policy_signals[:3]),
+                        "turn_indexes": [],
+                    }
+                )
+            elif behavior.risk_notes:
+                findings.append(f"Behavior lens: {behavior.risk_notes[0]}")
 
         if policy_scope is not None:
             for item in policy_scope.governance_controls[:3]:
@@ -293,6 +312,8 @@ class Team1PolicyExpert(ExpertModule):
             detail_payload=detail_payload,
             evidence={
                 "selected_policies": input_package.selected_policies,
+                "evaluation_mode": input_package.evaluation_mode,
+                "behavior_summary": behavior.model_dump() if behavior is not None else {},
                 "violations": violations,
                 "policy_scope_scan_mode": policy_scope.scan_mode if policy_scope is not None else "none",
                 "policy_scope_scanned_file_count": policy_scope.scanned_file_count if policy_scope is not None else 0,

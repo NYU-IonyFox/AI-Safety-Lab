@@ -7,6 +7,7 @@ Decision = Literal["APPROVE", "REVIEW", "REJECT"]
 EvaluationStatus = Literal["success", "degraded", "failed"]
 TargetExecutionStatus = Literal["skipped", "success", "failed"]
 SubmissionSource = Literal["github_url", "local_path", "manual"]
+EvaluationMode = Literal["repository_only", "behavior_only", "hybrid"]
 
 
 class StrictModel(BaseModel):
@@ -91,6 +92,46 @@ class TargetExecutionPackage(StrictModel):
     adapter_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class BehaviorEvidence(StrictModel):
+    source: Literal["conversation", "attack_prompt", "target_output", "target_execution", "repository"]
+    signal: str
+    quote: str = ""
+    why_it_matters: str = ""
+
+
+class BehaviorSummary(StrictModel):
+    evaluation_mode: EvaluationMode = "repository_only"
+    scope: Literal["empty", "transcript_only", "target_probe_only", "hybrid"] = "empty"
+    transcript_present: bool = False
+    live_target_present: bool = False
+    source_turn_count: int = 0
+    attack_turn_count: int = 0
+    target_output_turn_count: int = 0
+    enriched_turn_count: int = 0
+    attack_prompt_count: int = 0
+    target_output_count: int = 0
+    source_roles: list[str] = Field(default_factory=list)
+    target_roles: list[str] = Field(default_factory=list)
+    enriched_roles: list[str] = Field(default_factory=list)
+    target_execution_status: TargetExecutionStatus = "skipped"
+    target_status: TargetExecutionStatus = "skipped"
+    target_endpoint: str = ""
+    target_model: str = ""
+    target_prompt_source: str = ""
+    target_prompt_count: int = 0
+    target_record_count: int = 0
+    target_error_count: int = 0
+    content_markers: list[str] = Field(default_factory=list)
+    key_signals: list[str] = Field(default_factory=list)
+    detected_signals: list[str] = Field(default_factory=list)
+    policy_signals: list[str] = Field(default_factory=list)
+    misuse_signals: list[str] = Field(default_factory=list)
+    system_signals: list[str] = Field(default_factory=list)
+    risk_notes: list[str] = Field(default_factory=list)
+    evidence_items: list[BehaviorEvidence] = Field(default_factory=list)
+    summary: str = ""
+
+
 class ExpertMetadata(StrictModel):
     expert_name: str
     team: str = ""
@@ -112,12 +153,14 @@ class ExpertInputPackage(StrictModel):
     version: VersionInfo = Field(default_factory=VersionInfo)
     context: AgentContext
     selected_policies: list[str] = Field(default_factory=list)
+    evaluation_mode: EvaluationMode = "repository_only"
     source_conversation: list[ConversationTurn] = Field(default_factory=list)
     enriched_conversation: list[ConversationTurn] = Field(default_factory=list)
     attack_turns: list[ConversationTurn] = Field(default_factory=list)
     target_output_turns: list[ConversationTurn] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
     target_execution: TargetExecutionPackage | None = None
+    behavior_summary: BehaviorSummary | None = None
     submission: SubmissionTarget | None = None
     repository_summary: RepositorySummary | None = None
 
@@ -247,11 +290,13 @@ class CouncilResult(StrictModel):
 class EvaluationRequest(StrictModel):
     version: VersionInfo = Field(default_factory=VersionInfo)
     status: EvaluationStatus = "success"
+    evaluation_mode: EvaluationMode = "repository_only"
     context: AgentContext
     selected_policies: list[str] = Field(default_factory=list)
     conversation: list[ConversationTurn] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
     target_execution: TargetExecutionPackage | None = None
+    behavior_summary: BehaviorSummary | None = None
     expert_input: ExpertInputPackage | None = None
     submission: SubmissionTarget | None = None
     repository_summary: RepositorySummary | None = None
@@ -266,6 +311,7 @@ class EvaluationResponse(StrictModel):
     council_result: CouncilResult
     experts: list[ExpertVerdict]
     target_execution: TargetExecutionPackage | None = None
+    behavior_summary: BehaviorSummary | None = None
     expert_input: ExpertInputPackage | None = None
     submission: SubmissionTarget | None = None
     repository_summary: RepositorySummary | None = None

@@ -7,11 +7,18 @@ import httpx
 import streamlit as st
 
 APP_TITLE = "AI Safety Lab"
-APP_SUBTITLE = "A stakeholder-facing AI safety evaluation workspace for public GitHub repositories and local codebases."
+APP_SUBTITLE = "A stakeholder-facing AI safety evaluation workspace for Repository-only, Behavior-only, and Hybrid reviews."
 DEFAULT_API_BASE = "http://127.0.0.1:8080"
 DEFAULT_GITHUB_TARGET = ""
 DEFAULT_LOCAL_TARGET = ""
 DEFAULT_DESCRIPTION = "Repository submission for AI safety review."
+DEFAULT_TRANSCRIPT = ""
+
+WORKFLOW_OPTIONS = ["Repository-only", "Behavior-only", "Hybrid"]
+REPOSITORY_SOURCE_OPTIONS = {
+    "Public GitHub repository (recommended)": "github_url",
+    "Local folder on this machine": "local_path",
+}
 
 EXPERT_TITLES = {
     "team1_policy_expert": "Policy & Compliance",
@@ -154,11 +161,14 @@ def inject_styles() -> None:
 
 def ensure_state() -> None:
     st.session_state.setdefault("evaluation_result", None)
-    st.session_state.setdefault("source_type_label", "Public GitHub repository (recommended)")
+    st.session_state.setdefault("workflow_mode", "Repository-only")
+    st.session_state.setdefault("submitted_workflow_mode", "Repository-only")
+    st.session_state.setdefault("repository_source_label", "Public GitHub repository (recommended)")
     st.session_state.setdefault("github_url_input", DEFAULT_GITHUB_TARGET)
     st.session_state.setdefault("local_path_input", DEFAULT_LOCAL_TARGET)
     st.session_state.setdefault("target_name_input", "Submitted Repository")
     st.session_state.setdefault("description_input", DEFAULT_DESCRIPTION)
+    st.session_state.setdefault("transcript_input", DEFAULT_TRANSCRIPT)
 
 
 def tone_for_decision(decision: str) -> str:
@@ -200,6 +210,70 @@ def disagreement_label(value: float) -> str:
     return f"Low ({value:.2f})"
 
 
+def workflow_mode(result: dict | None) -> str:
+    result = result or {}
+    repo = result.get("repository_summary") or {}
+    expert_input = result.get("expert_input") or {}
+    source_conversation = expert_input.get("source_conversation", []) if isinstance(expert_input, dict) else []
+    if repo and source_conversation:
+        return "Hybrid"
+    if repo:
+        return "Repository-only"
+    if source_conversation:
+        return "Behavior-only"
+    return "Behavior-only"
+
+
+def parse_transcript(text: str) -> list[dict[str, str]]:
+    lines = text.splitlines()
+    turns: list[dict[str, str]] = []
+    current_role = "user"
+    buffer: list[str] = []
+
+    def flush() -> None:
+        nonlocal buffer
+        content = "\n".join(buffer).strip()
+        if content:
+            turns.append({"role": current_role, "content": content})
+        buffer = []
+
+    prefix_map = {
+        "system:": "system",
+        "user:": "user",
+        "human:": "user",
+        "assistant:": "assistant",
+        "agent:": "assistant",
+        "model:": "assistant",
+    }
+
+    for raw_line in lines:
+        stripped = raw_line.strip()
+        if not stripped:
+            if buffer:
+                buffer.append("")
+            continue
+        lower = stripped.lower()
+        matched_role = None
+        matched_prefix = ""
+        for prefix, role in prefix_map.items():
+            if lower.startswith(prefix):
+                matched_role = role
+                matched_prefix = prefix
+                break
+        if matched_role is not None:
+            flush()
+            current_role = matched_role
+            remainder = stripped[len(matched_prefix) :].strip()
+            buffer = [remainder] if remainder else []
+            continue
+        buffer.append(stripped)
+
+    flush()
+    if not turns and text.strip():
+        return [{"role": "user", "content": text.strip()}]
+    return turns
+
+
 def _upload_path(repo: dict | None, expert: dict | None = None) -> str:
     repo = repo or {}
     for path in repo.get("entrypoints", []):
@@ -222,7 +296,7 @@ def _backend_label(repo: dict | None) -> str:
     return ", ".join(backends[:3])
 
 
-def expert_evidence_lines(expert: dict) -> list[str]:
+def expert_evidence_lines(expert: dict, workflow: str) -> list[str]:
     evidence = expert.get("evidence", {}) if isinstance(expert, dict) else {}
     expert_name = str(expert.get("expert_name", ""))
 
@@ -256,6 +330,10 @@ def expert_evidence_lines(expert: dict) -> list[str]:
             signals = [str(item) for item in surface.get("surface_signals", []) if str(item).strip()]
             if signals:
                 lines.append(f"Threat surface signals: {', '.join(signals[:3])}.")
+        if workflow in {"Behavior-only", "Hybrid"}:
+            source_conversation = evidence.get("source_conversation", [])
+            if isinstance(source_conversation, list) and source_conversation:
+                lines.append(f"Conversation evidence supplied {len(source_conversation)} turn(s).")
         return lines[:3]
 
     if expert_name == "team3_risk_expert":
@@ -273,37 +351,67 @@ def expert_evidence_lines(expert: dict) -> list[str]:
     return []
 
 
-def stakeholder_takeaway_lines(expert: dict, repo: dict | None) -> list[str]:
+def stakeholder_takeaway_lines(expert: dict, result: dict | None, workflow: str) -> list[str]:
     expert_name = str(expert.get("expert_name", ""))
-    repo = repo or {}
+    result = result or {}
+    repo = result.get("repository_summary") or {}
+    expert_input = result.get("expert_input") or {}
     upload_path = _upload_path(repo, expert)
     backend_label = _backend_label(repo)
     has_no_auth = "no_explicit_auth" in {str(item) for item in repo.get("auth_signals", [])}
+    has_transcript = workflow in {"Behavior-only", "Hybrid"}
     findings_text = " ".join(str(item) for item in expert.get("findings", [])).lower()
 
     if expert_name == "team1_policy_expert":
-        lines = [f"This review checks whether `{upload_path}` and the broader intake workflow have clear access, oversight, and accountability controls."]
-        if has_no_auth:
-            lines.append(f"No explicit access-control layer is visible around `{upload_path}`, which weakens the governance story for public intake.")
-        if repo.get("llm_backends"):
-            lines.append(f"Because {backend_label} process submitted content, retention, escalation, and third-party accountability expectations should be documented before sign-off.")
+        if repo:
+            if workflow == "Hybrid":
+                lines = [f"This hybrid review checks whether `{upload_path}` and the conversation both show clear access, oversight, and accountability controls."]
+            else:
+                lines = [f"This review checks whether `{upload_path}` and the broader intake workflow have clear access, oversight, and accountability controls."]
+            if has_no_auth:
+                lines.append(f"No explicit access-control layer is visible around `{upload_path}`, which weakens the governance story for public intake.")
+            if repo.get("llm_backends"):
+                lines.append(f"Because {backend_label} process submitted content, retention, escalation, and third-party accountability expectations should be documented before sign-off.")
+        elif has_transcript:
+            lines = ["This review checks the transcript for oversight, escalation, and refusal behavior."]
+            lines.append("The policy lens looks for whether the conversation shows clear governance, accountability, and human review behavior.")
+        else:
+            lines = ["This review checks whether the submission shows clear governance, accountability, and oversight behavior."]
         return lines[:3]
 
     if expert_name == "team2_redteam_expert":
-        lines = [f"This review asks how a real attacker could misuse `{upload_path}` in practice."]
-        if repo.get("llm_backends"):
-            lines.append(f"The route into {backend_label} creates a concrete hostile-file or prompt-injection path before safeguards clearly stop abuse.")
+        if repo:
+            if workflow == "Hybrid":
+                lines = [f"This hybrid review asks how a real attacker could misuse `{upload_path}` or manipulate the conversation in practice."]
+            else:
+                lines = [f"This review asks how a real attacker could misuse `{upload_path}` in practice."]
+            if repo.get("llm_backends"):
+                lines.append(f"The route into {backend_label} creates a concrete hostile-file or prompt-injection path before safeguards clearly stop abuse.")
+            else:
+                lines.append("The exposed intake workflow creates a concrete hostile-file or misuse path before safeguards clearly stop abuse.")
+            lines.append("That means the repository can be operationally abused, not just theoretically criticized.")
+        elif has_transcript:
+            lines = ["This review asks how an attacker could manipulate the transcript or behavior trace in practice."]
+            lines.append("The red-team lens looks for jailbreak, leakage, prompt-injection, and unsafe-following behavior in the observed conversation.")
         else:
-            lines.append("The exposed intake workflow creates a concrete hostile-file or misuse path before safeguards clearly stop abuse.")
-        lines.append("That means the repository can be operationally abused, not just theoretically criticized.")
+            lines = ["This review asks how a real attacker could misuse the submitted behavior or repository evidence in practice."]
         return lines[:3]
 
     if expert_name == "team3_risk_expert":
-        lines = [f"This review focuses on the deployed system boundary around `{upload_path}`, not only prompts or policy wording."]
-        if repo.get("llm_backends"):
-            lines.append(f"The same workflow combines public uploads, local media processing, and {backend_label} in one chain.")
-        if has_no_auth or "secret-key" in findings_text or "secret key" in findings_text:
-            lines.append("That architecture needs stronger authentication, isolation, and deployment hardening before production use.")
+        if repo:
+            if workflow == "Hybrid":
+                lines = [f"This hybrid review focuses on the deployed system boundary around `{upload_path}` and the observed conversation behavior, not only prompts or policy wording."]
+            else:
+                lines = [f"This review focuses on the deployed system boundary around `{upload_path}`, not only prompts or policy wording."]
+            if repo.get("llm_backends"):
+                lines.append(f"The same workflow combines public uploads, local media processing, and {backend_label} in one chain.")
+            if has_no_auth or "secret-key" in findings_text or "secret key" in findings_text:
+                lines.append("That architecture needs stronger authentication, isolation, and deployment hardening before production use.")
+        elif has_transcript:
+            lines = ["This review focuses on the observed system behavior boundary, not only wording in the transcript."]
+            lines.append("The system lens checks whether behavior matches deployment claims, safety guardrails, and operational expectations.")
+        else:
+            lines = ["This review focuses on the submitted system boundary, not only prompts or policy wording."]
         return lines[:3]
 
     if "upload" in findings_text:
@@ -343,7 +451,7 @@ def governance_next_steps(result: dict) -> list[str]:
     decision = str(result.get("decision", "REVIEW"))
     if decision == "REJECT":
         return [
-            "Do not move this repository into production or open pilot deployment yet.",
+            "Do not move this submission into production or open pilot deployment yet.",
             "Assign engineering, security, and governance owners to close the listed gaps and capture the evidence of remediation.",
             "Rerun the evaluation after fixes and attach the updated report to the deployment or change-control record.",
         ]
@@ -354,9 +462,9 @@ def governance_next_steps(result: dict) -> list[str]:
             "Record the human decision together with this report so the governance trail stays auditable.",
         ]
     return [
-        "This repository can move forward under normal change control rather than emergency escalation.",
+        "This submission can move forward under normal change control rather than emergency escalation.",
         "Keep the current evidence trail, monitoring, and controls attached to the deployment record.",
-        "If the repository scope changes materially, rerun the evaluation before the next production release.",
+        "If the submission scope changes materially, rerun the evaluation before the next production release.",
     ]
 
 
@@ -374,33 +482,37 @@ def render_metric(label: str, value: str, tone: str, copy: str) -> None:
 
 
 def build_payload(
+    workflow_mode: str,
     source_type: str,
     github_url: str,
     local_path: str,
     target_name: str,
     description: str,
+    transcript_text: str,
     target_endpoint: str,
     target_model: str,
 ) -> dict:
+    conversation = parse_transcript(transcript_text)
     payload = {
         "context": {
-            "agent_name": target_name or "Submitted Repository",
+            "agent_name": target_name or ("Behavior Review" if workflow_mode == "Behavior-only" else "Submitted Submission"),
             "description": description,
             "domain": "Other",
             "capabilities": [],
             "high_autonomy": False,
         },
         "selected_policies": ["eu_ai_act", "us_nist", "iso", "unesco"],
-        "conversation": [],
+        "conversation": conversation,
         "metadata": {},
-        "submission": {
+    }
+    if workflow_mode != "Behavior-only":
+        payload["submission"] = {
             "source_type": source_type,
             "github_url": github_url.strip(),
             "local_path": local_path.strip(),
             "target_name": target_name.strip(),
             "description": description.strip(),
-        },
-    }
+        }
     if target_endpoint.strip():
         payload["metadata"]["target_endpoint"] = target_endpoint.strip()
     if target_model.strip():
@@ -424,12 +536,14 @@ def render_intro() -> None:
                     <div class="hero-title">{APP_TITLE}</div>
                     <div class="hero-copy">{APP_SUBTITLE}</div>
                     <div style="margin-top:0.8rem;">
-                        <span class="pill">GitHub URL or local path</span>
+                        <span class="pill">Repository-only</span>
+                        <span class="pill">Behavior-only</span>
+                        <span class="pill">Hybrid</span>
                         <span class="pill">three experts + council</span>
                         <span class="pill">stakeholder-ready report</span>
                     </div>
                     <ul class="hero-list">
-                        <li>Submit a real repository and extract framework, upload, auth, and LLM signals.</li>
+                        <li>Submit a repository, a transcript, or both, and extract the evidence the council needs.</li>
                         <li>Compare three distinct expert lenses instead of one generic score.</li>
                         <li>Return a final APPROVE / REVIEW / REJECT decision with an explicit arbitration rule.</li>
                     </ul>
@@ -437,8 +551,8 @@ def render_intro() -> None:
                 <div>
                     <div class="section-card" style="margin-bottom:0; background:#fffaf4;">
                         <div class="muted"><strong>Suggested workflow</strong></div>
-                        <div style="margin-top:0.45rem; font-weight:700; color:#0f172a;">1. Start backend and frontend locally</div>
-                        <div class="muted">2. Submit a public GitHub repository or a local codebase</div>
+                        <div style="margin-top:0.45rem; font-weight:700; color:#0f172a;">1. Choose Repository-only, Behavior-only, or Hybrid</div>
+                        <div class="muted">2. Add a repository, a transcript, or both</div>
                         <div class="muted">3. Review the expert findings, arbitration rule, and stakeholder report</div>
                     </div>
                 </div>
@@ -471,8 +585,8 @@ def render_demo_steps() -> None:
             """
             <div class="step-card">
                 <div class="muted"><strong>Step 1</strong></div>
-                <div style="font-size:1.15rem;font-weight:800;margin-top:0.2rem;">Choose the repository source</div>
-                <div style="margin-top:0.45rem;">Use a public GitHub URL for the smoothest demo path, or switch to a local path for offline debugging.</div>
+                <div style="font-size:1.15rem;font-weight:800;margin-top:0.2rem;">Choose a workflow</div>
+                <div style="margin-top:0.45rem;">Pick Repository-only, Behavior-only, or Hybrid depending on whether you have a codebase, a transcript, or both.</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -483,7 +597,7 @@ def render_demo_steps() -> None:
             <div class="step-card">
                 <div class="muted"><strong>Step 2</strong></div>
                 <div style="font-size:1.15rem;font-weight:800;margin-top:0.2rem;">Run the evaluation</div>
-                <div style="margin-top:0.45rem;">The backend analyzes the repository, enriches expert input, and synthesizes an explicit council decision.</div>
+                <div style="margin-top:0.45rem;">The backend analyzes the submission, enriches expert input, and synthesizes an explicit council decision.</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -494,7 +608,7 @@ def render_demo_steps() -> None:
             <div class="step-card">
                 <div class="muted"><strong>Step 3</strong></div>
                 <div style="font-size:1.15rem;font-weight:800;margin-top:0.2rem;">Review the stakeholder output</div>
-                <div style="margin-top:0.45rem;">Inspect expert differences, repository evidence, the arbitration rule, and downloadable artifacts.</div>
+                <div style="margin-top:0.45rem;">Inspect expert differences, repository or transcript evidence, the arbitration rule, and downloadable artifacts.</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -508,51 +622,78 @@ def render_submission_form() -> None:
     left, right = st.columns([1.3, 1])
     with left:
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
-        st.subheader("Repository submission")
-        source_options = {
-            "Public GitHub repository (recommended)": "github_url",
-            "Local folder on this machine": "local_path",
-        }
-        sample_col, spacer_col = st.columns([1, 2])
+        st.subheader("Choose review mode")
+        workflow_label = st.radio("Workflow", WORKFLOW_OPTIONS, horizontal=True, key="workflow_mode")
+        st.caption("Repository-only reviews a codebase, Behavior-only reviews a transcript or conversation log, and Hybrid combines both.")
+
+        sample_col, sample_transcript_col = st.columns(2)
         with sample_col:
             if st.button("Load sample public repo", use_container_width=True):
-                st.session_state.source_type_label = "Public GitHub repository (recommended)"
+                st.session_state.workflow_mode = "Repository-only"
+                st.session_state.submitted_workflow_mode = "Repository-only"
+                st.session_state.repository_source_label = "Public GitHub repository (recommended)"
                 st.session_state.github_url_input = "https://github.com/openai/openai-quickstart-python"
                 st.session_state.target_name_input = "OpenAI Quickstart"
                 st.session_state.description_input = "Small public Python quickstart repository that calls an external LLM API."
-        with spacer_col:
-            st.caption("Use the sample button to preview a full result without typing a repository link.")
+                st.session_state.transcript_input = ""
+        with sample_transcript_col:
+            if st.button("Load sample transcript", use_container_width=True):
+                st.session_state.workflow_mode = "Behavior-only"
+                st.session_state.submitted_workflow_mode = "Behavior-only"
+                st.session_state.transcript_input = "User: Summarize the requested task.\nAssistant: I can summarize the task and explain the safety checks."
+                st.session_state.target_name_input = "Sample Transcript"
+                st.session_state.description_input = "Transcript submitted for behavior-only review."
+                st.session_state.github_url_input = ""
+                st.session_state.local_path_input = ""
+        st.caption("Use the sample buttons to preview Repository-only or Behavior-only without typing everything from scratch.")
 
-        source_label = st.radio("Choose what to review", list(source_options.keys()), horizontal=True, key="source_type_label")
-        source_type = source_options[source_label]
+        source_type = "github_url"
         github_url = ""
         local_path = ""
-        if source_type == "github_url":
-            github_url = st.text_input(
-                "GitHub URL",
-                value=DEFAULT_GITHUB_TARGET,
-                placeholder="https://github.com/owner/repository",
-                key="github_url_input",
+        transcript_text = ""
+        if workflow_label in {"Repository-only", "Hybrid"}:
+            source_label = st.radio("Repository source", list(REPOSITORY_SOURCE_OPTIONS.keys()), horizontal=True, key="repository_source_label")
+            source_type = REPOSITORY_SOURCE_OPTIONS[source_label]
+            st.caption("Repository-only uses one repository source. Hybrid combines that repository with a transcript.")
+            if source_type == "github_url":
+                github_url = st.text_input(
+                    "GitHub URL",
+                    value=st.session_state.github_url_input,
+                    placeholder="https://github.com/owner/repository",
+                    key="github_url_input",
+                )
+                st.caption("Recommended for the smoothest evaluation flow. Paste a public repository link and run the review.")
+            else:
+                local_path = st.text_input(
+                    "Local folder path on the backend machine",
+                    value=st.session_state.local_path_input,
+                    placeholder="/absolute/path/to/repository",
+                    key="local_path_input",
+                )
+                st.caption("Use this for local debugging or offline review on the same machine as the backend.")
+        if workflow_label in {"Behavior-only", "Hybrid"}:
+            transcript_text = st.text_area(
+                "Behavior transcript / conversation",
+                value=st.session_state.transcript_input,
+                height=180,
+                key="transcript_input",
+                placeholder="User: ...\nAssistant: ...",
             )
-            st.caption("Recommended for the smoothest evaluation flow. Paste a public repository link and run the review.")
-        else:
-            local_path = st.text_input(
-                "Local folder path on the backend machine",
-                value=DEFAULT_LOCAL_TARGET,
-                placeholder="/absolute/path/to/repository",
-                key="local_path_input",
-            )
-            st.caption("Use this for local debugging or offline review on the same machine as the backend.")
+            st.caption("First-time tip: use speaker labels when you have them. The text is mapped to the existing `conversation` payload.")
+            if workflow_label == "Behavior-only":
+                st.caption("Leave repository fields blank for Behavior-only; the evaluation will run on the transcript only.")
+            else:
+                st.caption("Hybrid uses both the repository and the transcript in one evaluation.")
 
         with st.expander("Optional labels", expanded=False):
-            target_name = st.text_input("Display name", value="Submitted Repository", key="target_name_input")
-            description = st.text_area("Short description", value=DEFAULT_DESCRIPTION, height=90, key="description_input")
+            target_name = st.text_input("Display name", value=st.session_state.target_name_input, key="target_name_input")
+            description = st.text_area("Short description", value=st.session_state.description_input, height=90, key="description_input")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with right:
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
         st.subheader("What the user will see")
-        st.markdown("- Repository summary grounded in the submitted codebase")
+        st.markdown("- Submission summary grounded in the repository, transcript, or both")
         st.markdown("- Three distinct expert assessments")
         st.markdown("- Explicit arbitration rule for APPROVE / REVIEW / REJECT")
         st.markdown("- Downloadable stakeholder report and JSON archive")
@@ -560,19 +701,33 @@ def render_submission_form() -> None:
 
     with st.expander("Advanced settings for local debugging", expanded=False):
         api_base = st.text_input("Backend API base", value=DEFAULT_API_BASE)
-        target_endpoint = st.text_input("LLM endpoint (optional)", value="")
-        target_model = st.text_input("Model name (optional)", value="")
-        st.caption("Most users can leave this closed. These fields are only needed for custom backend routing or target execution.")
+        target_endpoint = st.text_input("Target endpoint (optional, advanced)", value="")
+        target_model = st.text_input("Target model label (optional)", value="")
+        st.caption("Most users can leave this closed. Use target probing only if you want the system to generate prompts against a live or test endpoint.")
 
     if st.button("Run evaluation", use_container_width=True):
-        if source_type == "local_path" and not local_path.strip():
+        if workflow_label in {"Repository-only", "Hybrid"} and source_type == "local_path" and not local_path.strip():
             st.warning("Please provide a local path.")
             return
-        if source_type == "github_url" and not github_url.strip():
+        if workflow_label in {"Repository-only", "Hybrid"} and source_type == "github_url" and not github_url.strip():
             st.warning("Please provide a GitHub URL.")
             return
+        if workflow_label in {"Behavior-only", "Hybrid"} and not transcript_text.strip():
+            st.warning("Please provide a behavior transcript or conversation log.")
+            return
 
-        payload = build_payload(source_type, github_url, local_path, target_name, description, target_endpoint, target_model)
+        st.session_state.submitted_workflow_mode = workflow_label
+        payload = build_payload(
+            workflow_label,
+            source_type,
+            github_url,
+            local_path,
+            target_name,
+            description,
+            transcript_text,
+            target_endpoint,
+            target_model,
+        )
         with st.spinner("Running expert evaluation..."):
             try:
                 st.session_state.evaluation_result = submit_evaluation(api_base, payload)
@@ -582,24 +737,48 @@ def render_submission_form() -> None:
                 st.error(f"Evaluation failed: {exc}")
 
 
-def render_repository_summary(repo: dict) -> None:
-    st.subheader("Target summary")
+def render_submission_summary(result: dict) -> None:
+    repo = result.get("repository_summary", {}) or {}
+    expert_input = result.get("expert_input", {}) or {}
+    submission = result.get("submission") or {}
+    source_conversation = expert_input.get("source_conversation", []) if isinstance(expert_input, dict) else []
+    mode = str(st.session_state.get("submitted_workflow_mode", workflow_mode(result)))
+
+    st.subheader("Submission summary")
     col1, col2 = st.columns(2)
     with col1:
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
-        st.markdown(f"**Target:** {repo.get('target_name', 'Unknown')}")
-        st.markdown(f"**Framework:** {repo.get('framework', 'Unknown')}")
-        st.markdown(f"**Source type:** {repo.get('source_type', 'manual')}")
-        st.markdown(f"**Summary:** {repo.get('summary', 'No summary available.')}")
+        st.markdown(f"**Workflow:** {mode}")
+        if repo:
+            st.markdown(f"**Target:** {repo.get('target_name', 'Unknown')}")
+            st.markdown(f"**Framework:** {repo.get('framework', 'Unknown')}")
+            st.markdown(f"**Source type:** {repo.get('source_type', submission.get('source_type', 'manual'))}")
+            st.markdown(f"**Summary:** {repo.get('summary', 'No summary available.')}")
+        else:
+            st.markdown(f"**Target:** {submission.get('target_name', 'Transcript review') or 'Transcript review'}")
+            st.markdown("**Framework:** Behavior-only transcript review")
+            st.markdown("**Source type:** manual / transcript")
+            st.markdown("**Summary:** This run reviewed the provided conversation log without a repository artifact.")
         st.markdown("</div>", unsafe_allow_html=True)
     with col2:
         st.markdown("<div class='section-card'>", unsafe_allow_html=True)
-        st.markdown("**Detected signals**")
-        for item in repo.get("detected_signals", []):
-            st.markdown(f"- {item}")
-        st.markdown("**Risk notes**")
-        for item in repo.get("risk_notes", []):
-            st.markdown(f"- {item}")
+        if repo:
+            st.markdown("**Detected signals**")
+            for item in repo.get("detected_signals", []):
+                st.markdown(f"- {item}")
+            st.markdown("**Risk notes**")
+            for item in repo.get("risk_notes", []):
+                st.markdown(f"- {item}")
+            if mode == "Hybrid" and source_conversation:
+                st.markdown("**Conversation coverage**")
+                st.markdown(f"- {len(source_conversation)} conversation turn(s) supplied in the payload.")
+        else:
+            st.markdown("**Transcript coverage**")
+            st.markdown(f"- {len(source_conversation)} conversation turn(s) supplied in the payload.")
+            st.markdown("- The council reviews the behavior evidence directly from the transcript.")
+            target_execution = result.get("target_execution") or {}
+            if isinstance(target_execution, dict) and target_execution.get("status") == "success":
+                st.markdown("- Optional target probing is enabled when a target endpoint is supplied.")
         st.markdown("</div>", unsafe_allow_html=True)
 
     evidence_items = repo.get("evidence_items", [])
@@ -611,11 +790,21 @@ def render_repository_summary(repo: dict) -> None:
                 f"- `{item.get('path', 'unknown')}`: **{item.get('signal', 'Signal')}**. {item.get('why_it_matters', '')}"
             )
         st.markdown("</div>", unsafe_allow_html=True)
+    elif source_conversation:
+        st.markdown("<div class='section-card'>", unsafe_allow_html=True)
+        st.markdown("**Evidence from transcript**")
+        for turn in source_conversation[:6]:
+            role = str(turn.get("role", "user")).capitalize()
+            content = str(turn.get("content", "")).strip()
+            if content:
+                st.markdown(f"- **{role}**: {content[:220]}")
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
-def render_expert_panels(experts: list[dict], repo: dict | None) -> None:
+def render_expert_panels(experts: list[dict], result: dict | None) -> None:
     st.subheader("Three expert modules")
     columns = st.columns(3)
+    workflow = str(st.session_state.get("submitted_workflow_mode", "Repository-only"))
     for idx, expert in enumerate(experts[:3]):
         with columns[idx]:
             tone = risk_tone(expert.get("risk_tier", "UNKNOWN"))
@@ -624,9 +813,24 @@ def render_expert_panels(experts: list[dict], repo: dict | None) -> None:
             st.markdown(f"**Risk tier:** {expert.get('risk_tier', 'UNKNOWN')}")
             st.markdown(f"**Bottom line:** {expert.get('summary', '')}")
             st.markdown("**What this means**")
-            for line in stakeholder_takeaway_lines(expert, repo):
+            for line in stakeholder_takeaway_lines(expert, result, workflow):
                 st.markdown(f"- {line}")
-            evidence_lines = expert_evidence_lines(expert)
+            evidence_lines = expert_evidence_lines(expert, workflow)
+            expert_input = result.get("expert_input", {}) if isinstance(result, dict) else {}
+            if isinstance(expert_input, dict):
+                source_turns = len(expert_input.get("source_conversation", []))
+                attack_turns = len(expert_input.get("attack_turns", []))
+                target_turns = len(expert_input.get("target_output_turns", []))
+                if workflow in {"Behavior-only", "Hybrid"} and (source_turns or attack_turns or target_turns):
+                    evidence_lines = [
+                        *evidence_lines,
+                        *([f"Conversation input supplied {source_turns} turn(s)."] if source_turns else []),
+                        *(
+                            [f"Target probing produced {attack_turns} prompt turn(s) and {target_turns} target response(s)."]
+                            if attack_turns or target_turns
+                            else []
+                        ),
+                    ]
             if evidence_lines:
                 st.markdown("**Evidence you can trace**")
                 for item in evidence_lines:
@@ -731,9 +935,8 @@ def render_result() -> None:
     if not result:
         return
 
-    repo = result.get("repository_summary", {})
-    render_repository_summary(repo)
-    render_expert_panels(result.get("experts", []), repo)
+    render_submission_summary(result)
+    render_expert_panels(result.get("experts", []), result)
     render_council_panel(result)
     render_artifacts(result)
 

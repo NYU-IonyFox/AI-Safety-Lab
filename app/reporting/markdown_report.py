@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.schemas import CouncilResult, ExpertVerdict, RepositorySummary
+from app.schemas import BehaviorSummary, CouncilResult, ExpertVerdict, RepositorySummary
 
 
 EXPERT_TITLES = {
@@ -14,10 +14,12 @@ def build_markdown_report(
     *,
     evaluation_id: str,
     repository_summary: RepositorySummary | None,
+    behavior_summary: BehaviorSummary | None,
     experts: list[ExpertVerdict],
     council: CouncilResult,
 ) -> str:
     repo = repository_summary
+    behavior = behavior_summary
     lines = [
         "# AI Safety Lab Stakeholder Evaluation Report",
         "",
@@ -74,6 +76,29 @@ def build_markdown_report(
             lines.append("## Why the repository matters from a safety perspective")
             lines.extend([f"- {item}" for item in repo.risk_notes])
             lines.append("")
+
+    if behavior is not None:
+        lines.extend(
+            [
+                "## Behavior and Transcript Review",
+                f"- **Evaluation mode:** `{behavior.evaluation_mode}`",
+                f"- **Transcript present:** {'Yes' if behavior.transcript_present else 'No'}",
+                f"- **Live target evidence present:** {'Yes' if behavior.live_target_present else 'No'}",
+                f"- **Behavior summary:** {behavior.summary}",
+            ]
+        )
+        if behavior.detected_signals:
+            lines.append("- **Detected behavior signals:**")
+            lines.extend([f"  - {item}" for item in behavior.detected_signals[:8]])
+        if behavior.evidence_items:
+            lines.append("- **Behavior evidence:**")
+            lines.extend(
+                [
+                    f"  - **{item.source}** `{item.signal}`: {item.quote or item.why_it_matters}"
+                    for item in behavior.evidence_items[:4]
+                ]
+            )
+        lines.append("")
 
     if council.cross_expert_critique:
         lines.append("## Cross-expert critique")

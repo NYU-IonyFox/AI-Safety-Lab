@@ -5,6 +5,7 @@ from typing import Any
 
 from app.analyzers import summarize_repository
 from app.audit import persist_evaluation
+from app.behavior import build_behavior_summary, build_probe_pack
 from app.council import synthesize_council
 from app.config import EXPERT_EXECUTION_MODE, TARGET_MAX_PROMPTS, TARGET_TIMEOUT_SEC
 from app.deliberation import run_deliberation
@@ -50,11 +51,24 @@ class SafetyLabOrchestrator:
             repository_summary = self._build_repository_summary(request, resolution)
             normalized_request = self._normalize_request(request, repository_summary)
             target_execution = self._build_target_execution(normalized_request)
-            expert_input = self._build_expert_input(normalized_request, target_execution, repository_summary)
+            behavior_summary = self._build_behavior_summary(
+                normalized_request,
+                target_execution,
+                repository_summary,
+                source_conversation=request.conversation,
+            )
+            expert_input = self._build_expert_input(
+                normalized_request,
+                target_execution,
+                repository_summary,
+                behavior_summary,
+                source_conversation=request.conversation,
+            )
             enriched_request = normalized_request.model_copy(
                 update={
                     "version": self._request_version(normalized_request),
                     "target_execution": target_execution,
+                    "behavior_summary": behavior_summary,
                     "expert_input": expert_input,
                     "repository_summary": repository_summary,
                 }
@@ -82,6 +96,7 @@ class SafetyLabOrchestrator:
                 markdown_report=build_markdown_report(
                     evaluation_id="pending",
                     repository_summary=repository_summary,
+                    behavior_summary=behavior_summary,
                     experts=expert_verdicts,
                     council=council_result,
                 ),
@@ -89,6 +104,7 @@ class SafetyLabOrchestrator:
             final_markdown = build_markdown_report(
                 evaluation_id=evaluation_id,
                 repository_summary=repository_summary,
+                behavior_summary=behavior_summary,
                 experts=expert_verdicts,
                 council=council_result,
             )
@@ -102,6 +118,7 @@ class SafetyLabOrchestrator:
                 council_result=council_result,
                 experts=expert_verdicts,
                 target_execution=target_execution,
+                behavior_summary=behavior_summary,
                 expert_input=expert_input,
                 submission=enriched_request.submission,
                 repository_summary=repository_summary,
@@ -116,9 +133,10 @@ class SafetyLabOrchestrator:
         context = request.context
         metadata = deepcopy(request.metadata)
         submission = request.submission
+        evaluation_mode = self._infer_evaluation_mode(request, repository_summary)
 
         if repository_summary is None:
-            return request
+            return request.model_copy(update={"evaluation_mode": evaluation_mode})
 
         if submission is None:
             submission = SubmissionTarget(source_type="manual", target_name=repository_summary.target_name, description=repository_summary.description)
@@ -146,6 +164,7 @@ class SafetyLabOrchestrator:
 
         return request.model_copy(
             update={
+                "evaluation_mode": evaluation_mode,
                 "context": AgentContext(
                     agent_name=context.agent_name,
                     description=context.description or repository_summary.summary,
@@ -189,7 +208,8 @@ class SafetyLabOrchestrator:
     def _build_target_execution(self, request: EvaluationRequest) -> TargetExecutionPackage:
         endpoint = str(request.metadata.get("target_endpoint", "")).strip()
         model = str(request.metadata.get("target_model", "")).strip()
-        prompts = self._build_target_prompts(request)
+        probe_pack = self._build_probe_pack(request)
+        prompts = [str(item) for item in probe_pack.get("prompts", []) if str(item).strip()]
         source_conversation = [ConversationTurn(role=turn.role, content=turn.content) for turn in request.conversation]
 
         package = TargetExecutionPackage(
@@ -197,12 +217,12 @@ class SafetyLabOrchestrator:
             status="skipped",
             endpoint=endpoint,
             model=model,
-            prompt_source=self._prompt_source(request),
+            prompt_source=str(probe_pack.get("prompt_source", self._prompt_source(request))),
             source_conversation=source_conversation,
             prompts=prompts[:TARGET_MAX_PROMPTS],
             records=[],
             prompt_count=0,
-            adapter_metadata={"adapter": "http_text"},
+            adapter_metadata={"adapter": "http_text", "probe_pack": probe_pack},
         )
         if not endpoint or not package.prompts:
             return package
@@ -239,8 +259,29 @@ class SafetyLabOrchestrator:
                 "status": status,
                 "records": records,
                 "prompt_count": len(records),
-                "adapter_metadata": {"adapter": "http_text", "prompt_count": len(records)},
+                "adapter_metadata": {
+                    "adapter": "http_text",
+                    "prompt_count": len(records),
+                    "probe_pack": probe_pack,
+                },
             }
+        )
+
+    def _build_behavior_summary(
+        self,
+        request: EvaluationRequest,
+        target_execution: TargetExecutionPackage,
+        repository_summary: RepositorySummary | None,
+        *,
+        source_conversation: list[ConversationTurn] | None = None,
+    ):
+        return build_behavior_summary(
+            evaluation_mode=request.evaluation_mode,
+            source_conversation=source_conversation if source_conversation is not None else request.conversation,
+            attack_turns=[ConversationTurn(role="user", content=record.prompt) for record in target_execution.records],
+            target_output_turns=[ConversationTurn(role="assistant", content=record.response) for record in target_execution.records],
+            target_execution=target_execution,
+            repository_summary=repository_summary,
         )
 
     def _build_expert_input(
@@ -248,21 +289,30 @@ class SafetyLabOrchestrator:
         request: EvaluationRequest,
         target_execution: TargetExecutionPackage,
         repository_summary: RepositorySummary | None,
+        behavior_summary: Any,
+        *,
+        source_conversation: list[ConversationTurn] | None = None,
     ) -> ExpertInputPackage:
-        source_conversation = [ConversationTurn(role=turn.role, content=turn.content) for turn in request.conversation]
+        source_turns = [
+            ConversationTurn(role=turn.role, content=turn.content)
+            for turn in (source_conversation if source_conversation is not None else request.conversation)
+        ]
         target_output_turns = [ConversationTurn(role="assistant", content=record.response) for record in target_execution.records]
         attack_turns = [ConversationTurn(role="user", content=record.prompt) for record in target_execution.records]
-        enriched_conversation = [*source_conversation, *[turn for pair in zip(attack_turns, target_output_turns) for turn in pair]]
+        normalized_turns = [ConversationTurn(role=turn.role, content=turn.content) for turn in request.conversation]
+        enriched_conversation = [*normalized_turns, *[turn for pair in zip(attack_turns, target_output_turns) for turn in pair]]
         return ExpertInputPackage(
             version=self._request_version(request),
             context=request.context,
             selected_policies=list(request.selected_policies or ["eu_ai_act", "us_nist", "iso", "unesco"]),
-            source_conversation=source_conversation,
+            evaluation_mode=request.evaluation_mode,
+            source_conversation=source_turns,
             enriched_conversation=enriched_conversation,
             attack_turns=attack_turns,
             target_output_turns=target_output_turns,
             metadata=deepcopy(request.metadata),
             target_execution=target_execution,
+            behavior_summary=behavior_summary,
             submission=request.submission,
             repository_summary=repository_summary,
         )
@@ -303,6 +353,39 @@ class SafetyLabOrchestrator:
             seen.add(key)
             deduped.append(prompt)
         return deduped
+
+    def _build_probe_pack(self, request: EvaluationRequest) -> dict[str, Any]:
+        custom = request.metadata.get("target_prompts")
+        return build_probe_pack(
+            evaluation_mode=request.evaluation_mode,
+            repository_summary=request.repository_summary,
+            source_conversation=request.conversation,
+            target_endpoint=str(request.metadata.get("target_endpoint", "")).strip(),
+            custom_prompts=custom if isinstance(custom, list) else None,
+        )
+
+    def _infer_evaluation_mode(self, request: EvaluationRequest, repository_summary: RepositorySummary | None) -> str:
+        explicit_mode = str(getattr(request, "evaluation_mode", "") or "").strip().lower()
+        has_submission = repository_summary is not None or request.submission is not None
+        has_conversation = any(turn.content.strip() for turn in request.conversation)
+        has_target = bool(str(request.metadata.get("target_endpoint", "")).strip())
+        has_probe_prompts = isinstance(request.metadata.get("target_prompts"), list) and bool(request.metadata.get("target_prompts"))
+        has_behavior = has_conversation or has_target or has_probe_prompts
+
+        inferred = "repository_only"
+        if has_submission and has_behavior:
+            inferred = "hybrid"
+        elif has_behavior:
+            inferred = "behavior_only"
+
+        if explicit_mode in {"repository_only", "behavior_only", "hybrid"}:
+            if explicit_mode == "hybrid" and has_submission and has_behavior:
+                return explicit_mode
+            if explicit_mode == "behavior_only" and has_behavior and not has_submission:
+                return explicit_mode
+            if explicit_mode == "repository_only" and has_submission and not has_behavior:
+                return explicit_mode
+        return inferred
 
     def _build_expert_metadata(self, verdicts: list[ExpertVerdict]) -> list[ExpertMetadata]:
         verdicts_by_name = {verdict.expert_name: verdict for verdict in verdicts}

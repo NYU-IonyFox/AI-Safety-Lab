@@ -75,11 +75,24 @@ def smoke_test() -> dict[str, object]:
     )
     normalized_request = orchestrator._normalize_request(request, repository_summary)
     target_execution = orchestrator._build_target_execution(normalized_request)
-    expert_input = orchestrator._build_expert_input(normalized_request, target_execution, repository_summary)
+    behavior_summary = orchestrator._build_behavior_summary(
+        normalized_request,
+        target_execution,
+        repository_summary,
+        source_conversation=request.conversation,
+    )
+    expert_input = orchestrator._build_expert_input(
+        normalized_request,
+        target_execution,
+        repository_summary,
+        behavior_summary,
+        source_conversation=request.conversation,
+    )
     request = normalized_request.model_copy(
         update={
             "version": orchestrator._request_version(normalized_request),
             "target_execution": target_execution,
+            "behavior_summary": behavior_summary,
             "expert_input": expert_input,
             "repository_summary": repository_summary,
         }
@@ -119,6 +132,8 @@ def smoke_test() -> dict[str, object]:
         "smoke_test": "pass",
         "llm_backend": orchestrator.version.expert_model_backend,
         "configured_execution_mode": orchestrator.experts[0].configured_execution_mode() if orchestrator.experts else "unknown",
+        "evaluation_mode": request.evaluation_mode,
+        "behavior_summary": behavior_summary.model_dump(),
         "experts": expert_statuses,
         "council_preview": {
             "decision": council.decision,

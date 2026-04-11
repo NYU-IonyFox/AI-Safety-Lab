@@ -9,7 +9,13 @@ Built for the UNICC AI Safety Lab Capstone | NYU MASY GC-4100 | Spring 2026
 - **Qianying Shao (Fox)** — Project 2: Fine-Tuning the SLM and Building the Council of Experts — `qs2266@nyu.edu`
 - **Qianmian Wang** — Project 3: Testing, User Experience, and Integration — `qw2544@nyu.edu`
 
-This repository is designed to be cloned and evaluated as a standalone submission. It accepts a target repository by GitHub URL or local path, analyzes the codebase, runs three distinct expert modules, and returns a structured `APPROVE` / `REVIEW` / `REJECT` council decision with a stakeholder-readable report.
+This repository is designed to be cloned and evaluated as a standalone submission. It supports three workflows:
+
+- **Repository-only**: submit a GitHub URL or local path for codebase review
+- **Behavior-only**: submit a transcript or conversation log for behavior review
+- **Hybrid**: combine repository evidence with transcript / behavior evidence in one evaluation
+
+The system analyzes the submitted material, runs three distinct expert modules, and returns a structured `APPROVE` / `REVIEW` / `REJECT` council decision with a stakeholder-readable report.
 
 The system is aligned with the capstone memorandum's core product goals:
 
@@ -27,17 +33,14 @@ Important scope note: the current public submission evaluates repository-based A
 
 An AI safety evaluation platform with three layers:
 
-- **Repository Intake and Analysis**  
+- **Repository-only analysis**  
   Accepts a GitHub URL or local path, clones or resolves the repository, then extracts framework, upload, authentication, dependency, and model-integration signals.
 
-- **Council of Experts**  
-  Runs three independent expert modules:
-  - **Policy & Compliance**: governance controls, accountability, access control, and policy exposure
-  - **Adversarial Misuse**: abuse paths, prompt-injection surface, hostile uploads, and misuse likelihood
-  - **System & Deployment**: architecture, external-model coupling, deployment exposure, and operational safeguards
+- **Behavior-only transcript review**  
+  Accepts a transcript or conversation log through the existing `conversation` payload and evaluates the observed behavior without requiring a repository artifact.
 
-- **Stakeholder-Facing UI and Reports**  
-  Produces a structured JSON response, a markdown stakeholder report, a JSON archive, and a local Streamlit interface for non-technical review.
+- **Hybrid council review**  
+  Combines repository evidence and behavior evidence in the same council flow, so the experts can weigh static and dynamic signals together.
 
 ---
 
@@ -63,8 +66,9 @@ Implemented in this repository through:
 - three independent expert modules
 - council synthesis and explicit arbitration rules
 - repository analyzer and evidence extraction
+- behavior / transcript review through the existing `conversation` payload
 - prompt and schema assets under `model_assets/`
-- optional SLM hooks and local expert-runner interfaces
+- optional SLM hooks, local expert-runner interfaces, and optional target endpoint probing
 
 ### Project 3 — Testing, User Experience, and Integration
 
@@ -72,7 +76,7 @@ Implemented in this repository through:
 
 - Streamlit stakeholder UI
 - markdown stakeholder report generation
-- repository evaluation flow
+- repository-only, behavior-only, and hybrid review flows
 - smoke-test and health-check routes
 - end-to-end integration across intake, experts, council, and artifacts
 
@@ -80,10 +84,10 @@ Implemented in this repository through:
 
 The capstone memo emphasizes an on-prem, auditable, governance-aligned AI Safety Lab for evaluating AI systems before deployment. This repository operationalizes that goal as a reproducible repository-evaluation workflow:
 
-- **pre-deployment artifact**: the submitted AI repository
+- **pre-deployment artifact**: the submitted AI repository or behavior transcript, depending on the workflow
 - **independent perspectives**: three expert modules with different decision logic
 - **explicit critique/synthesis**: council arbitration with a named `decision_rule_triggered`
-- **auditability**: repository evidence, markdown reports, JSON archives, and redaction before persistence
+- **auditability**: repository evidence, transcript evidence, markdown reports, JSON archives, and redaction before persistence
 
 The repository is now oriented around a standalone local SLM path by default: the three experts attempt local open-weight inference first, and fall back to rules only when the local HF runtime is unavailable or returns unusable output.
 
@@ -179,20 +183,21 @@ http://127.0.0.1:8501
 
 ### Step 5 — Submit a repository
 
-Use either of the supported input modes:
+Choose the workflow that matches your submission:
 
-- `github_url` for a public repository
-- `local_path` for a repository already on disk
+- **Repository-only**: submit a public GitHub repository or a local folder.
+- **Behavior-only**: leave the repository fields empty and paste a transcript into the `conversation` payload.
+- **Hybrid**: provide both a repository and a transcript, so the council can synthesize static and dynamic evidence together.
 
-Leave advanced target-execution fields blank for the default no-key path.
+Leave the optional target-execution fields blank unless you want to probe a live or test endpoint.
 
 If `/smoke-test` shows `runner_mode: rules_fallback`, the API is still healthy, but the local HF dependencies are not active yet.
 
 ---
 
-## Evaluating a Repository
+## Evaluating a Submission
 
-### Option 1 — Submit via GitHub URL
+### Repository-only
 
 Set a public GitHub repository URL and optional target name:
 
@@ -202,7 +207,7 @@ TARGET_NAME="Submitted Repository" \
 ./scripts/curl_eval.sh
 ```
 
-### Option 2 — Submit via local path
+### Repository-only via local path
 
 ```bash
 SOURCE_TYPE=local_path \
@@ -211,7 +216,38 @@ TARGET_NAME="Local Repository" \
 ./scripts/curl_eval.sh
 ```
 
-### Option 3 — Post a JSON template directly
+### Behavior-only
+
+Behavior-only uses the existing `conversation` payload. Leave `submission` empty and send a transcript or turn-by-turn conversation log.
+
+For a first-time run, the easiest path is:
+
+1. Open `examples/evaluation_request.json`.
+2. Remove the `submission` block or leave it out of your own JSON payload.
+3. Add a `conversation` array with `user` and `assistant` turns from the transcript you want reviewed.
+4. Keep `metadata.target_endpoint` blank unless you are intentionally probing a live or test endpoint.
+5. Submit the JSON payload through `/v1/evaluations` or the API docs.
+
+Example conversation fragment:
+
+```json
+{
+  "conversation": [
+    {"role": "user", "content": "User: Please summarize the attached policy."},
+    {"role": "assistant", "content": "Assistant: ..."}
+  ]
+}
+```
+
+### Hybrid
+
+Hybrid combines the repository and conversation paths:
+
+- provide `github_url` or `local_path`
+- include a `conversation` transcript in the same payload
+- optionally add `metadata.target_endpoint` if you want the system to probe a live or test endpoint before synthesis
+
+### Post a JSON template directly
 
 Edit one of the example payloads first:
 
@@ -226,7 +262,7 @@ Then submit it:
 REQUEST_FILE=examples/evaluation_request.json ./scripts/curl_eval.sh
 ```
 
-### Option 4 — One-command demo launch
+### One-command demo launch
 
 ```bash
 ./scripts/start_demo.sh
@@ -237,7 +273,7 @@ This starts:
 - backend: `http://127.0.0.1:8080`
 - frontend: `http://127.0.0.1:8501`
 
-### Option 5 — Bootstrap a real local SLM first
+### Bootstrap a real local SLM first
 
 If you want a one-command local-HF setup that installs dependencies, preloads the model, and runs a smoke-test before you launch the UI:
 
@@ -245,7 +281,7 @@ If you want a one-command local-HF setup that installs dependencies, preloads th
 ./scripts/bootstrap_local_slm.sh
 ```
 
-The default preset is `Qwen/Qwen3.5-4B`. This is now the recommended standalone local council model for the project and the default path for GPU-backed bring-up.
+The default preset is `Qwen/Qwen3.5-4B`. This is the recommended standalone local council model for the project and the default path for GPU-backed bring-up.
 
 Recommended local SLM flow:
 
@@ -342,6 +378,11 @@ An evaluation response contains:
       }
     ]
   },
+  "expert_input": {
+    "source_conversation": [
+      {"role": "user", "content": "User: ..."}
+    ]
+  },
   "experts": [
     {
       "expert_name": "team3_risk_expert",
@@ -357,6 +398,8 @@ An evaluation response contains:
 }
 ```
 
+Repository-only and Hybrid runs include `repository_summary`; Behavior-only runs may omit it and rely on the `conversation` payload plus `expert_input`.
+
 ---
 
 ## What a Strong Evaluation Should Surface
@@ -370,10 +413,19 @@ For a repository with public upload routes, model integrations, and weak access 
 - lack of an explicit authentication layer
 - development secret-key fallback if present
 
+For Behavior-only and Hybrid runs, the output should also reference transcript or probe evidence such as:
+
+- refusal or escalation behavior
+- prompt-injection resistance or leakage
+- safety, oversight, and neutrality behavior in the observed conversation
+- optional target endpoint probe results when enabled
+
 In the current implementation, these are surfaced as:
 
 - `repository_summary.detected_signals`
 - `repository_summary.evidence_items`
+- `expert_input.source_conversation`
+- `target_execution.records` when optional probing is enabled
 - expert-specific findings
 - `council_result.decision_rule_triggered`
 
@@ -382,12 +434,12 @@ In the current implementation, these are surfaced as:
 ## System Architecture
 
 ```text
-GitHub URL / Local Path Submission
+ Repository-only / Behavior-only / Hybrid Submission
                 ↓
-        Repository Intake
-     (clone / resolve / analyze)
+        Intake / Transcript Parsing
+     (clone / resolve / parse conversation)
                 ↓
-    Repository Summary + Evidence
+    Repository Summary + Transcript Evidence
                 ↓
 ┌───────────────────────────────────────┐
 │         Council of Experts            │
