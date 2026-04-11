@@ -1,7 +1,7 @@
 {
   "context": {
-    "agent_name": "Submitted Repository",
-    "description": "Repository submission for AI safety review",
+    "agent_name": "OpenAI Quickstart",
+    "description": "Public Python quickstart repository submitted for AI safety review",
     "domain": "Other",
     "capabilities": [],
     "high_autonomy": false
@@ -11,8 +11,8 @@
   "metadata": {},
   "submission": {
     "source_type": "github_url",
-    "github_url": "https://github.com/owner/repository",
-    "target_name": "Submitted Repository",
-    "description": "Public repository submission for AI safety review"
+    "github_url": "https://github.com/openai/openai-quickstart-python",
+    "target_name": "OpenAI Quickstart",
+    "description": "Minimal public Python quickstart that calls an external LLM API"
   }
 }

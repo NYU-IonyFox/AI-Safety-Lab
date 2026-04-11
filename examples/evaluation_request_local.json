@@ -11,7 +11,7 @@
   "metadata": {},
   "submission": {
     "source_type": "local_path",
-    "local_path": "./path/to/repository",
+    "local_path": "/absolute/path/to/repository",
     "target_name": "Local Repository",
     "description": "Local repository submission for AI safety review"
   }
