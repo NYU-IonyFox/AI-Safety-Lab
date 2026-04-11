@@ -81,7 +81,7 @@ def _build_critique(
 
     if author.expert_name == "team2_redteam_expert":
         missing = []
-        if repository_summary.upload_surfaces and _lacks(target_text, ["upload", "hostile", "file", "payload"]):
+        if repository_summary.upload_surfaces and _lacks(target_text, ["malicious file", "hostile file", "payload chain", "prompt-injection"]):
             missing.append("hostile file ingestion risk")
         if repository_summary.llm_backends and _lacks(target_text, ["prompt", "jailbreak", "misuse", "abuse"]):
             missing.append("prompt-injection or misuse pathways")
@@ -111,7 +111,7 @@ def _build_critique(
             missing.append("system-boundary exposure")
         if any(signal.startswith("default_secret_key") for signal in repository_summary.secret_signals) and _lacks(target_text, ["secret", "session", "deployment hardening"]):
             missing.append("deployment hardening weakness")
-        if repository_summary.media_modalities and _lacks(target_text, ["media", "conversion", "transcription", "runtime"]):
+        if repository_summary.media_modalities and _lacks(target_text, ["media", "conversion", "transcription", "runtime", "pipeline"]):
             missing.append("runtime handling of multimedia content")
         if missing:
             return DeliberationExchange(
@@ -155,7 +155,17 @@ def _revise_verdict(
         )
         return verdict
 
-    risk_delta = min(0.09, 0.03 * len(novel_critiques))
+    severity_gap = max(0.0, max((critique.risk_delta for critique in critiques), default=0.0))
+    novelty_weight = 0.02 + 0.015 * len(novel_critiques)
+    content_weight = 0.0
+    joined = " ".join(critique.summary.lower() for critique in novel_critiques)
+    if any(token in joined for token in ["system-boundary", "deployment", "hardening"]):
+        content_weight += 0.01
+    if any(token in joined for token in ["prompt-injection", "hostile file", "misuse", "payload"]):
+        content_weight += 0.015
+    if any(token in joined for token in ["access-control", "governance", "third-party model"]):
+        content_weight += 0.008
+    risk_delta = min(0.09, round(novelty_weight + content_weight + severity_gap, 3))
     revised_risk = min(0.98, verdict.risk_score + risk_delta)
     revised_confidence = min(0.95, verdict.confidence + 0.02 * len(critiques))
     new_findings = list(verdict.findings)
@@ -208,7 +218,22 @@ def _revise_verdict(
 
 
 def _introduces_new_concern(summary: str, current_text: str) -> bool:
-    tokens = ["access-control", "governance", "upload", "prompt", "misuse", "system-boundary", "deployment", "hardening", "media", "runtime"]
+    tokens = [
+        "access-control",
+        "governance",
+        "upload",
+        "prompt",
+        "misuse",
+        "system-boundary",
+        "deployment",
+        "hardening",
+        "media",
+        "runtime",
+        "hostile file",
+        "payload",
+        "unauthenticated",
+        "third-party model",
+    ]
     lowered = summary.lower()
     return any(token in lowered and token not in current_text for token in tokens)
 

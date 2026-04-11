@@ -135,7 +135,10 @@ class Team1PolicyExpert(ExpertModule):
 
         if repo is not None:
             if repo.framework == "Flask":
-                findings.append("Policy lens: Flask request handlers should be paired with documented access control, intake policy, and abuse-response controls.")
+                anchor_path = next((path for path in repo.notable_files if path.endswith(".py")), "application handlers")
+                findings.append(
+                    f"Policy lens: Flask request handlers in `{anchor_path}` should be paired with documented access control, intake policy, and abuse-response controls."
+                )
             if repo.upload_surfaces:
                 upload_path = next((path for path in repo.entrypoints if "upload" in path.lower()), "") or "the upload workflow"
                 findings.append(f"Policy lens: `{upload_path}` accepts user-controlled content, so retention, moderation, and escalation controls should be explicit.")
@@ -210,12 +213,12 @@ class Team1PolicyExpert(ExpertModule):
 
         violation_count = len(violations)
         if violation_count >= 2:
-            risk_score = 0.82
+            risk_score = 0.75
             risk_tier = "HIGH"
             critical = False
             findings.append("Multiple policy risk clusters detected.")
         elif violation_count == 1:
-            risk_score = 0.56
+            risk_score = 0.52
             risk_tier = "LIMITED"
             critical = False
             findings.append("One policy risk cluster detected.")

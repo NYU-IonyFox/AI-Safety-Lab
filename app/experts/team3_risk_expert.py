@@ -166,19 +166,19 @@ class Team3RiskExpert(ExpertModule):
             if repo.framework == "Flask" and repo.upload_surfaces:
                 findings.append("Flask upload workflow expands system-level safety exposure.")
                 risk_tier = "TIER_2"
-                risk_score = max(risk_score, 0.52)
+                risk_score = max(risk_score, 0.48)
             if repo.llm_backends:
                 findings.append(f"External model/transcription services in use: {', '.join(repo.llm_backends)}.")
                 risk_tier = "TIER_3"
-                risk_score = max(risk_score, 0.78)
+                risk_score = max(risk_score, 0.64)
             if "no_explicit_auth" in repo.auth_signals:
                 findings.append("No explicit authentication layer detected for analysis entry points.")
                 risk_tier = "TIER_3"
-                risk_score = max(risk_score, 0.82)
+                risk_score = max(risk_score, 0.68)
             if any(signal.startswith("default_secret_key") for signal in repo.secret_signals):
                 findings.append("Default or weak secret-key fallback pattern detected.")
                 risk_tier = "TIER_3"
-                risk_score = max(risk_score, 0.84)
+                risk_score = max(risk_score, 0.70)
 
             capabilities = list(dict.fromkeys([*capabilities, *repo.media_modalities]))
             high_autonomy = high_autonomy or bool(repo.llm_backends)
@@ -186,7 +186,7 @@ class Team3RiskExpert(ExpertModule):
         if system_scope is not None:
             findings.extend(system_scope.exposure_findings[:4])
             if system_scope.exposure_findings:
-                risk_score = max(risk_score, 0.76)
+                risk_score = max(risk_score, 0.69)
                 risk_tier = "TIER_3"
             if system_scope.control_findings:
                 findings.extend([f"System-scope control: {item}" for item in system_scope.control_findings[:2]])
