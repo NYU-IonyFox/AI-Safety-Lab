@@ -37,6 +37,7 @@ def inject_styles() -> None:
 
         .hero-card,
         .section-card,
+        .sidebar-card,
         .step-card,
         .module-card,
         .metric-card,
@@ -53,6 +54,7 @@ def inject_styles() -> None:
         }
 
         .section-card,
+        .sidebar-card,
         .step-card,
         .module-card,
         .trace-card {
@@ -195,6 +197,12 @@ def inject_styles() -> None:
             color: #64748b;
         }
 
+        .sidebar-title {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
         .card-flush {
             margin-bottom: 0;
         }
@@ -249,15 +257,19 @@ def inject_styles() -> None:
         }
 
         .stTextInput input,
-        .stTextArea textarea {
-            color: #0f172a !important;
-            -webkit-text-fill-color: #0f172a !important;
+        .stTextArea textarea,
+        section[data-testid="stSidebar"] .stTextInput input,
+        section[data-testid="stSidebar"] .stTextArea textarea {
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
         }
 
         .stTextInput input::placeholder,
-        .stTextArea textarea::placeholder {
-            color: #94a3b8 !important;
-            -webkit-text-fill-color: #94a3b8 !important;
+        .stTextArea textarea::placeholder,
+        section[data-testid="stSidebar"] .stTextInput input::placeholder,
+        section[data-testid="stSidebar"] .stTextArea textarea::placeholder {
+            color: rgba(255, 255, 255, 0.62) !important;
+            -webkit-text-fill-color: rgba(255, 255, 255, 0.62) !important;
             opacity: 1;
         }
 

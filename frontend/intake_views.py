@@ -11,6 +11,7 @@ DEFAULT_GITHUB_TARGET = ""
 DEFAULT_LOCAL_TARGET = ""
 DEFAULT_DESCRIPTION = "Repository submission for AI safety review."
 DEFAULT_TRANSCRIPT = ""
+PENDING_SAMPLE_KEY = "_pending_sample"
 
 
 def _inject_styles() -> None:
@@ -31,9 +32,18 @@ def _ensure_state() -> None:
     st.session_state.setdefault("api_base_input", DEFAULT_API_BASE)
     st.session_state.setdefault("target_endpoint_input", "")
     st.session_state.setdefault("target_model_input", "")
+    _apply_pending_sample()
 
 
-def _sample_public_repo() -> None:
+def _apply_pending_sample() -> None:
+    pending_sample = st.session_state.pop(PENDING_SAMPLE_KEY, "")
+    if pending_sample == "public_repo":
+        _load_sample_public_repo()
+    elif pending_sample == "transcript":
+        _load_sample_transcript()
+
+
+def _load_sample_public_repo() -> None:
     st.session_state.current_page = "input"
     st.session_state.evaluation_result = None
     st.session_state.workflow_mode = "Repository-only"
@@ -46,7 +56,7 @@ def _sample_public_repo() -> None:
     st.session_state.transcript_input = ""
 
 
-def _sample_transcript() -> None:
+def _load_sample_transcript() -> None:
     st.session_state.current_page = "input"
     st.session_state.evaluation_result = None
     st.session_state.workflow_mode = "Behavior-only"
@@ -57,6 +67,10 @@ def _sample_transcript() -> None:
     st.session_state.target_name_input = "Sample Transcript"
     st.session_state.description_input = "Transcript submitted for behavior-only review."
     st.session_state.transcript_input = "User: Summarize the requested task.\nAssistant: I can summarize the task and explain the safety checks."
+
+
+def _queue_sample(sample_name: str) -> None:
+    st.session_state[PENDING_SAMPLE_KEY] = sample_name
 
 
 def _render_card_header(title: str, copy: str | None = None) -> None:
@@ -73,15 +87,29 @@ def _render_field_help(copy: str) -> None:
     st.markdown(f'<p class="field-help">{copy}</p>', unsafe_allow_html=True)
 
 
+def _render_card(title: str, lines: list[str]) -> None:
+    st.markdown("<div class='sidebar-card'>", unsafe_allow_html=True)
+    st.markdown(f"**{title}**")
+    for line in lines:
+        st.markdown(f"- {line}")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
 def render_sidebar(app_title: str, app_subtitle: str) -> None:
     _inject_styles()
     _ensure_state()
 
     with st.sidebar:
-        st.caption("Stakeholder intake")
-        st.markdown(f"### {app_title}")
-        st.write(app_subtitle)
-        st.divider()
+        st.markdown(
+            f"""
+            <div class="sidebar-card">
+                <div class="hero-eyebrow">Stakeholder intake</div>
+                <div class="sidebar-title">{app_title}</div>
+                <div class="body-copy">{app_subtitle}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         st.markdown("**Navigation**")
         nav_left, nav_right = st.columns(2)
@@ -94,7 +122,6 @@ def render_sidebar(app_title: str, app_subtitle: str) -> None:
             if st.button("Result", use_container_width=True, disabled=not has_result):
                 st.session_state.current_page = "result"
                 st.rerun()
-        st.divider()
 
         st.markdown("**Advanced settings**")
         st.text_input(
@@ -113,31 +140,25 @@ def render_sidebar(app_title: str, app_subtitle: str) -> None:
             key="target_model_input",
         )
         st.caption("Use target probing only if you want the system to generate prompts against a live or test endpoint.")
-        st.divider()
 
         current_workflow = st.session_state.get("workflow_mode", "Repository-only")
         current_source = st.session_state.get("repository_source_label", "Public GitHub repository (recommended)")
-        st.markdown("**Current state**")
-        st.markdown(
-            "\n".join(
-                [
-                    f"- Workflow: {current_workflow}",
-                    f"- Repository source: {current_source if current_workflow != 'Behavior-only' else 'Not used'}",
-                    f"- Page: {st.session_state.get('current_page', 'input')}",
-                ]
-            )
+        _render_card(
+            "Current state",
+            [
+                f"Workflow: {current_workflow}",
+                f"Repository source: {current_source if current_workflow != 'Behavior-only' else 'Not used'}",
+                f"Page: {st.session_state.get('current_page', 'input')}",
+            ],
         )
-        st.divider()
 
-        st.markdown("**Quick notes**")
-        st.markdown(
-            "\n".join(
-                [
-                    "- Repository-only, Behavior-only, and Hybrid all stay on the same intake path.",
-                    "- Sample buttons preload state and keep the current form shape intact.",
-                    "- Advanced settings are stored in session state and reused on submit.",
-                ]
-            )
+        _render_card(
+            "Quick notes",
+            [
+                "Repository-only, Behavior-only, and Hybrid all stay on the same intake path.",
+                "Sample buttons preload state and keep the current form shape intact.",
+                "Advanced settings are stored in session state and reused on submit.",
+            ],
         )
 
 
@@ -218,11 +239,11 @@ def _render_submission_controls(
         sample_col, sample_transcript_col = st.columns(2)
         with sample_col:
             if st.button("Load sample public repo", use_container_width=True):
-                _sample_public_repo()
+                _queue_sample("public_repo")
                 st.rerun()
         with sample_transcript_col:
             if st.button("Load sample transcript", use_container_width=True):
-                _sample_transcript()
+                _queue_sample("transcript")
                 st.rerun()
         _render_field_help("Use the sample buttons to preview Repository-only or Behavior-only without typing everything from scratch.")
 
