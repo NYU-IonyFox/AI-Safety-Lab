@@ -51,16 +51,21 @@ def resolve_submission(submission: SubmissionTarget | None) -> SubmissionResolut
         if parsed.scheme not in {"http", "https"} or parsed.netloc != "github.com":
             raise SubmissionError("Only https://github.com/... URLs are supported for GitHub intake.")
         tmpdir = tempfile.mkdtemp(prefix="ai-safety-lab-repo-")
+        clone_cwd = str(Path(tmpdir).parent)
         try:
             subprocess.run(
                 ["git", "clone", "--depth", "1", github_url, tmpdir],
                 check=True,
                 capture_output=True,
                 text=True,
+                cwd=clone_cwd,
             )
         except subprocess.CalledProcessError as exc:
             shutil.rmtree(tmpdir, ignore_errors=True)
             raise SubmissionError(exc.stderr.strip() or f"git clone failed for {github_url}") from exc
+        except OSError as exc:
+            shutil.rmtree(tmpdir, ignore_errors=True)
+            raise SubmissionError(f"git clone failed for {github_url}: {exc}") from exc
         repo_name = Path(parsed.path.rstrip("/")).name.removesuffix(".git") or "github-repo"
         return SubmissionResolution(
             source_type=source_type,

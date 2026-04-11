@@ -1,7 +1,9 @@
+import os
 import shutil
 import subprocess
 from pathlib import Path
 
+import app.intake.submission_service as submission_service
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -79,7 +81,7 @@ def _post_payload(client: TestClient, submission: dict) -> dict:
 
 
 def _fake_git_clone_factory(source_repo: Path):
-    def fake_run(cmd: list[str], check: bool, capture_output: bool, text: bool):
+    def fake_run(cmd: list[str], check: bool, capture_output: bool, text: bool, cwd: str | None = None):
         assert cmd == ["git", "clone", "--depth", "1", GITHUB_URL, cmd[-1]]
         clone_target = Path(cmd[-1])
         shutil.copytree(source_repo, clone_target, dirs_exist_ok=True)
@@ -176,3 +178,34 @@ def test_github_url_submission_returns_structured_report(tmp_path: Path, monkeyp
     assert body["repository_summary"]["description"] == "Flask app for toxicity analysis"
     assert body["repository_summary"]["resolved_path"]
     assert not Path(body["repository_summary"]["resolved_path"]).exists()
+
+
+def test_github_url_submission_survives_deleted_process_cwd(tmp_path: Path, monkeypatch) -> None:
+    source_repo = tmp_path / "github-source-deleted-cwd"
+    _build_demo_repo(source_repo)
+    original_run = submission_service.subprocess.run
+
+    def fake_run(cmd: list[str], check: bool, capture_output: bool, text: bool, cwd: str | None = None):
+        # This reproduces the old bug: if cwd is omitted while the parent process cwd is deleted,
+        # spawning even a trivial subprocess fails before the clone work can start.
+        original_run(["pwd"], check=True, capture_output=True, text=True, cwd=cwd)
+        assert cmd == ["git", "clone", "--depth", "1", GITHUB_URL, cmd[-1]]
+        clone_target = Path(cmd[-1])
+        shutil.copytree(source_repo, clone_target, dirs_exist_ok=True)
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr("app.intake.submission_service.subprocess.run", fake_run)
+
+    client = TestClient(app)
+    vanished_cwd = tmp_path / "vanished-cwd"
+    vanished_cwd.mkdir()
+    previous_cwd = os.getcwd()
+    try:
+        os.chdir(vanished_cwd)
+        shutil.rmtree(vanished_cwd)
+        body = _post_payload(client, _build_github_submission())
+    finally:
+        os.chdir(previous_cwd)
+
+    _assert_report_shape(body)
+    assert body["submission"]["github_url"] == GITHUB_URL
