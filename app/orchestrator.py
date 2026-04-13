@@ -28,6 +28,7 @@ from app.schemas import (
     TargetExecutionRecord,
     VersionInfo,
 )
+from app.multilingual.nllb_translator import translate_to_english
 from app.slm import get_slm_runner
 from app.targets import HTTPTextTarget
 
@@ -69,18 +70,55 @@ class SafetyLabOrchestrator:
             repository_summary = self._build_repository_summary(request, resolution)
             normalized_request = self._normalize_request(request, repository_summary)
             target_execution = self._build_target_execution(normalized_request)
+
+            # Translate non-English conversation turns before behavior analysis
+            primary_lang = normalized_request.metadata.get("primary_language", "en")
+            translated_turns = []
+            translation_confidence = 1.0
+
+            for turn in (normalized_request.conversation or []):
+                if primary_lang not in ("en", "english", "unknown"):
+                    translated_text, conf = translate_to_english(
+                        turn.content, primary_lang
+                    )
+                    translated_turns.append(ConversationTurn(role=turn.role, content=translated_text))
+                    translation_confidence = min(translation_confidence, conf)
+                else:
+                    translated_turns.append(turn)
+
+            if translated_turns:
+                normalized_request = normalized_request.model_copy(
+                    update={"conversation": translated_turns}
+                )
+
             behavior_summary = self._build_behavior_summary(
                 normalized_request,
                 target_execution,
                 repository_summary,
-                source_conversation=request.conversation,
+                source_conversation=normalized_request.conversation,
             )
+
+            behavior_summary = behavior_summary.model_copy(
+                update={
+                    "translation_confidence": translation_confidence,
+                    "primary_language": primary_lang,
+                }
+            )
+
+            # Confidence tier flags
+            bs_update: dict = {}
+            if primary_lang == "unknown":
+                bs_update["uncertainty_flag"] = True
+            elif translation_confidence < 0.80:
+                bs_update["multilingual_warning"] = True
+            if bs_update:
+                behavior_summary = behavior_summary.model_copy(update=bs_update)
             expert_input = self._build_expert_input(
                 normalized_request,
                 target_execution,
                 repository_summary,
                 behavior_summary,
-                source_conversation=request.conversation,
+                source_conversation=normalized_request.conversation,
             )
             enriched_request = normalized_request.model_copy(
                 update={

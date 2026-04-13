@@ -13,7 +13,8 @@
       "Bash(python -m pytest tests/ -k \"not smoke_test and not test_local_repo_submission_returns_structured_report\" --tb=short -q)",
       "Bash(echo \"EXIT:$?\")",
       "Bash(python -m pytest tests/ -k \"test_health or test_root_describes_api_entrypoints\" --tb=short -v)",
-      "Bash(python -m pytest tests/ -k \"not smoke_test and not test_api\" --tb=short -q)"
+      "Bash(python -m pytest tests/ -k \"not smoke_test and not test_api\" --tb=short -q)",
+      "Bash(python -m pytest tests/test_multilingual.py -v --tb=short)"
     ]
   }
 }
