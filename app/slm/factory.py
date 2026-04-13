@@ -18,4 +18,7 @@ def get_slm_runner() -> SLMRunner:
         if mode in {"hf", "transformers", "open_weight", "open-weight"}:
             return LocalHFRunner()
         return LocalHTTPRunner()
+    elif backend == "anthropic":
+        from app.slm.anthropic_runner import AnthropicRunner
+        return AnthropicRunner()
     return MockSLMRunner()

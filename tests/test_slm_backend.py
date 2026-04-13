@@ -5,9 +5,40 @@ from types import SimpleNamespace
 import pytest
 
 from app.slm.factory import get_slm_runner
+from app.slm.anthropic_runner import AnthropicRunner
 from app.slm.local_hf_runner import LocalHFRunner
 from app.slm.local_http_runner import LocalHTTPRunner
 from app.slm.mock_runner import MockSLMRunner
+
+
+# ---------------------------------------------------------------------------
+# AnthropicRunner tests
+# ---------------------------------------------------------------------------
+
+
+def test_anthropic_runner_raises_on_missing_api_key(monkeypatch) -> None:
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    with pytest.raises(ValueError, match="ANTHROPIC_API_KEY is not set"):
+        AnthropicRunner()
+
+
+def test_factory_returns_anthropic_runner(monkeypatch) -> None:
+    monkeypatch.setenv("SLM_BACKEND", "anthropic")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key-does-not-call-api")
+    runner = get_slm_runner()
+    assert isinstance(runner, AnthropicRunner)
+
+
+def test_mock_mode_unaffected_by_anthropic_addition(monkeypatch) -> None:
+    monkeypatch.setenv("SLM_BACKEND", "mock")
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    runner = get_slm_runner()
+    assert isinstance(runner, MockSLMRunner)
+
+
+# ---------------------------------------------------------------------------
+# Existing factory / runner tests
+# ---------------------------------------------------------------------------
 
 
 def test_factory_default_is_local_hf(monkeypatch) -> None:
