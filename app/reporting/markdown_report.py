@@ -155,6 +155,10 @@ def build_markdown_report(
         if expert_evidence:
             lines.append("- **Expert-specific evidence:**")
             lines.extend([f"  - {item}" for item in expert_evidence])
+        anchor_lines = _anchor_lines_for_expert(expert)
+        if anchor_lines:
+            lines.append("- **Regulatory anchors:**")
+            lines.extend(anchor_lines)
         lines.append("")
 
     lines.extend(
@@ -348,6 +352,28 @@ def _upload_path(repo: RepositorySummary | None, expert: ExpertVerdict) -> str:
             if isinstance(route, dict) and route.get("has_upload") and route.get("path"):
                 return str(route.get("path"))
     return "the intake workflow"
+
+
+def _anchor_lines_for_expert(expert: ExpertVerdict) -> list[str]:
+    evidence = expert.evidence or {}
+    if expert.expert_name == "team1_policy_expert":
+        finding_dicts = [v for v in evidence.get("violations", []) if isinstance(v, dict)]
+    elif expert.expert_name == "team2_redteam_expert":
+        finding_dicts = [v for v in evidence.get("dimension_findings", []) if isinstance(v, dict)]
+    elif expert.expert_name == "team3_risk_expert":
+        finding_dicts = [v for v in evidence.get("protocol_results", []) if isinstance(v, dict)]
+    else:
+        finding_dicts = []
+
+    lines: list[str] = []
+    for finding in finding_dicts:
+        if finding.get("evidence_anchors"):
+            for anchor in finding["evidence_anchors"]:
+                lines.append(
+                    f"  - *Ref: {anchor['framework']} {anchor['section']}"
+                    f" — {anchor['provision']}*"
+                )
+    return lines
 
 
 def _backend_label(repo: RepositorySummary | None) -> str:

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from app.analyzers.policy_scope import analyze_policy_scope
+from app.anchors.anchor_loader import get_anchors
 from app.experts.base import ExpertModule
+
+log = logging.getLogger(__name__)
 from app.schemas import (
     EvaluationRequest,
     ExpertVerdict,
@@ -258,6 +262,14 @@ class Team1PolicyExpert(ExpertModule):
                         ],
                     }
                 )
+
+        for violation in violations:
+            try:
+                anchors = get_anchors("team1_policy_expert", violation["policy"])
+            except Exception:
+                anchors = []
+                log.warning("get_anchors failed for team1 signal: %s", violation["policy"])
+            violation["evidence_anchors"] = anchors
 
         violation_count = len(violations)
         if violation_count >= 2:

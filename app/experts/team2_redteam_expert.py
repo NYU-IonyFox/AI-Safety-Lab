@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
 from app.analyzers.redteam_surface import build_redteam_surface_profile
+from app.anchors.anchor_loader import get_anchors
 from app.experts.base import ExpertModule
+
+log = logging.getLogger(__name__)
 from app.schemas import (
     EvaluationRequest,
     ExpertVerdict,
@@ -532,6 +536,21 @@ class Team2RedTeamExpert(ExpertModule):
         else:
             summary = f"{target_name}: adversarial review found limited evidence of active misuse exposure."
 
+        dimension_findings: list[dict[str, Any]] = []
+        for dimension_name in self.DEFAULT_WEIGHTS:
+            finding: dict[str, Any] = {
+                "dimension": dimension_name,
+                "score": dimension_scores.get(dimension_name, 1.0),
+                "weight": self.DEFAULT_WEIGHTS[dimension_name],
+            }
+            try:
+                anchors = get_anchors("team2_redteam_expert", dimension_name)
+            except Exception:
+                anchors = []
+                log.warning("get_anchors failed for team2 dimension: %s", dimension_name)
+            finding["evidence_anchors"] = anchors
+            dimension_findings.append(finding)
+
         detail_payload = self._detail_payload(
             source=source,
             evaluation_status=evaluation_status,
@@ -553,6 +572,7 @@ class Team2RedTeamExpert(ExpertModule):
             "prompt_source": "expert_specific_slm_prompt" if source == "slm" else "rules",
             "evaluation_mode": input_package.evaluation_mode,
             "behavior_summary": behavior.model_dump() if behavior is not None else {},
+            "dimension_findings": dimension_findings,
             **dimension_scores.get("_hits", {}),
         }
         if raw is not None:
