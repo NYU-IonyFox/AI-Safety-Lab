@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/ -v)",
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(python -m pytest tests/ -v --tb=short --ignore=tests/test_api.py -q)",
+      "Bash(python -m pytest tests/test_api.py -v --tb=short -k \"not smoke_test\")"
+    ]
+  }
+}

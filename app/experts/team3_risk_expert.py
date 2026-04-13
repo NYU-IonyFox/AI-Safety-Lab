@@ -35,15 +35,15 @@ class Team3RiskExpert(ExpertModule):
     }
 
     PROTOCOLS = [
-        {"id": "bias", "name": "Fairness Check", "category": "SUITE_A_CORE", "required_tiers": ["TIER_2", "TIER_3"]},
-        {"id": "robustness", "name": "Noise Robustness", "category": "SUITE_A_CORE", "required_tiers": ["TIER_2", "TIER_3"]},
-        {"id": "transparency", "name": "Transparency Audit", "category": "SUITE_A_CORE", "required_tiers": ["TIER_2", "TIER_3"]},
-        {"id": "explainability", "name": "Reasoning Check", "category": "SUITE_A_CORE", "required_tiers": ["TIER_3"]},
-        {"id": "privacy_doc", "name": "Data Minimization Audit", "category": "SUITE_A_CORE", "required_tiers": ["TIER_2", "TIER_3"]},
-        {"id": "evasion", "name": "Evasion Attack", "category": "SUITE_B_ADVERSARIAL", "required_tiers": ["TIER_3"]},
-        {"id": "poison", "name": "Poisoning Trigger", "category": "SUITE_B_ADVERSARIAL", "required_tiers": ["TIER_3"]},
-        {"id": "privacy_inf", "name": "Inference Attack", "category": "SUITE_B_ADVERSARIAL", "required_tiers": ["TIER_3"]},
-        {"id": "redteam", "name": "Jailbreak Misuse", "category": "SUITE_B_ADVERSARIAL", "required_tiers": ["TIER_3"]},
+        {"id": "bias", "name": "Fairness Check", "category": "SUITE_A_CORE", "required_tiers": ["LIMITED", "HIGH"]},
+        {"id": "robustness", "name": "Noise Robustness", "category": "SUITE_A_CORE", "required_tiers": ["LIMITED", "HIGH"]},
+        {"id": "transparency", "name": "Transparency Audit", "category": "SUITE_A_CORE", "required_tiers": ["LIMITED", "HIGH"]},
+        {"id": "explainability", "name": "Reasoning Check", "category": "SUITE_A_CORE", "required_tiers": ["HIGH"]},
+        {"id": "privacy_doc", "name": "Data Minimization Audit", "category": "SUITE_A_CORE", "required_tiers": ["LIMITED", "HIGH"]},
+        {"id": "evasion", "name": "Evasion Attack", "category": "SUITE_B_ADVERSARIAL", "required_tiers": ["HIGH"]},
+        {"id": "poison", "name": "Poisoning Trigger", "category": "SUITE_B_ADVERSARIAL", "required_tiers": ["HIGH"]},
+        {"id": "privacy_inf", "name": "Inference Attack", "category": "SUITE_B_ADVERSARIAL", "required_tiers": ["HIGH"]},
+        {"id": "redteam", "name": "Jailbreak Misuse", "category": "SUITE_B_ADVERSARIAL", "required_tiers": ["HIGH"]},
     ]
 
     def assess(self, request: EvaluationRequest) -> ExpertVerdict:
@@ -148,10 +148,10 @@ class Team3RiskExpert(ExpertModule):
             rule_baseline=rule_baseline,
             evaluation_status="success",
         )
-        if rule_baseline.get("risk_tier") == "TIER_4":
+        if rule_baseline.get("risk_tier") == "UNACCEPTABLE":
             verdict.critical = True
             verdict.risk_score = max(verdict.risk_score, 0.98)
-            verdict.risk_tier = "TIER_4"
+            verdict.risk_tier = "UNACCEPTABLE"
             verdict.findings.insert(0, f"Domain is prohibited: {rule_baseline.get('domain', request.context.domain)}")
             verdict.summary = f"{verdict.summary}; prohibited_domain=true"
         elif rule_baseline.get("findings"):
@@ -170,26 +170,26 @@ class Team3RiskExpert(ExpertModule):
         system_scope = analyze_system_scope(repo.resolved_path, repo) if repo is not None and repo.resolved_path else None
 
         findings: list[str] = []
-        risk_tier = "TIER_1"
+        risk_tier = "MINIMAL"
         risk_score = 0.15
         critical = False
 
         if repo is not None:
             if repo.framework == "Flask" and repo.upload_surfaces:
                 findings.append("Flask upload workflow expands system-level safety exposure.")
-                risk_tier = "TIER_2"
+                risk_tier = "LIMITED"
                 risk_score = max(risk_score, 0.48)
             if repo.llm_backends:
                 findings.append(f"External model/transcription services in use: {', '.join(repo.llm_backends)}.")
-                risk_tier = "TIER_3"
+                risk_tier = "HIGH"
                 risk_score = max(risk_score, 0.64)
             if "no_explicit_auth" in repo.auth_signals:
                 findings.append("No explicit authentication layer detected for analysis entry points.")
-                risk_tier = "TIER_3"
+                risk_tier = "HIGH"
                 risk_score = max(risk_score, 0.68)
             if any(signal.startswith("default_secret_key") for signal in repo.secret_signals):
                 findings.append("Default or weak secret-key fallback pattern detected.")
-                risk_tier = "TIER_3"
+                risk_tier = "HIGH"
                 risk_score = max(risk_score, 0.70)
 
             capabilities = list(dict.fromkeys([*capabilities, *repo.media_modalities]))
@@ -199,7 +199,7 @@ class Team3RiskExpert(ExpertModule):
             findings.extend(system_scope.exposure_findings[:4])
             if system_scope.exposure_findings:
                 risk_score = max(risk_score, 0.69)
-                risk_tier = "TIER_3"
+                risk_tier = "HIGH"
             if system_scope.control_findings:
                 findings.extend([f"System-scope control: {item}" for item in system_scope.control_findings[:2]])
 
@@ -207,8 +207,8 @@ class Team3RiskExpert(ExpertModule):
             if behavior.system_signals:
                 findings.append(f"Behavior lens: observed runtime/deployment signals include {', '.join(behavior.system_signals[:3])}.")
                 risk_score = max(risk_score, 0.58)
-                if risk_tier == "TIER_1":
-                    risk_tier = "TIER_2"
+                if risk_tier == "MINIMAL":
+                    risk_tier = "LIMITED"
             elif behavior.risk_notes:
                 findings.append(f"Behavior lens: {behavior.risk_notes[0]}")
             if behavior.multilingual_flag_applied:
@@ -219,16 +219,16 @@ class Team3RiskExpert(ExpertModule):
                 findings.append("Behavior lens: multilingual interpretation uncertainty requires a conservative deployment review.")
 
         if domain in self.PROHIBITED_DOMAINS:
-            risk_tier = "TIER_4"
+            risk_tier = "UNACCEPTABLE"
             risk_score = 0.98
             critical = True
             findings.append(f"Domain is prohibited: {domain}")
         elif capabilities or (domain in self.HIGH_RISK_DOMAINS and high_autonomy):
-            risk_tier = "TIER_3"
+            risk_tier = "HIGH"
             risk_score = 0.78
             findings.append("High impact tier triggered by capabilities/autonomy.")
         elif domain in self.HIGH_RISK_DOMAINS:
-            risk_tier = "TIER_2"
+            risk_tier = "LIMITED"
             risk_score = 0.52
             findings.append("High-risk domain detected without critical capabilities.")
         else:
@@ -289,26 +289,26 @@ class Team3RiskExpert(ExpertModule):
         risk_score = max(protocol_risk_score, baseline_risk_score)
 
         if risk_score >= 0.85:
-            risk_tier = "TIER_4"
+            risk_tier = "UNACCEPTABLE"
             critical = True
         elif risk_score >= 0.65:
-            risk_tier = "TIER_3"
+            risk_tier = "HIGH"
             critical = False
         elif risk_score >= 0.4:
-            risk_tier = "TIER_2"
+            risk_tier = "LIMITED"
             critical = False
         else:
-            risk_tier = "TIER_1"
+            risk_tier = "MINIMAL"
             critical = False
 
-        if isinstance(rule_baseline, dict) and rule_baseline.get("risk_tier") in {"TIER_4", "TIER_3", "TIER_2"}:
-            if rule_baseline["risk_tier"] == "TIER_4":
-                risk_tier = "TIER_4"
+        if isinstance(rule_baseline, dict) and rule_baseline.get("risk_tier") in {"UNACCEPTABLE", "HIGH", "LIMITED"}:
+            if rule_baseline["risk_tier"] == "UNACCEPTABLE":
+                risk_tier = "UNACCEPTABLE"
                 critical = True
-            elif rule_baseline["risk_tier"] == "TIER_3" and risk_tier in {"TIER_1", "TIER_2"}:
-                risk_tier = "TIER_3"
-            elif rule_baseline["risk_tier"] == "TIER_2" and risk_tier == "TIER_1":
-                risk_tier = "TIER_2"
+            elif rule_baseline["risk_tier"] == "HIGH" and risk_tier in {"MINIMAL", "LIMITED"}:
+                risk_tier = "HIGH"
+            elif rule_baseline["risk_tier"] == "LIMITED" and risk_tier == "MINIMAL":
+                risk_tier = "LIMITED"
 
         findings = [
             (
@@ -346,9 +346,9 @@ class Team3RiskExpert(ExpertModule):
             summary = (
                 f"{target_name}: system-risk review found an unauthenticated upload pipeline connected to external AI services, so deployment review is required."
             )
-        elif risk_tier in {"TIER_4", "TIER_3"}:
+        elif risk_tier in {"UNACCEPTABLE", "HIGH"}:
             summary = f"{target_name}: system-risk review found elevated architecture or deployment exposure."
-        elif risk_tier == "TIER_2":
+        elif risk_tier == "LIMITED":
             summary = f"{target_name}: system-risk review found moderate deployment exposure that should be reviewed before approval."
         else:
             summary = f"{target_name}: system-risk review found low baseline deployment exposure under the current rule set."

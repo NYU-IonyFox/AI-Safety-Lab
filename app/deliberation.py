@@ -328,15 +328,9 @@ def _flatten_refs(critiques: list[DeliberationExchange]) -> list[str]:
 
 
 def _coerce_risk_tier(verdict: ExpertVerdict, risk_score: float) -> str:
-    if verdict.risk_tier.startswith("TIER_"):
-        if risk_score >= 0.85:
-            return "TIER_4"
-        if risk_score >= 0.65:
-            return "TIER_3"
-        if risk_score >= 0.4:
-            return "TIER_2"
-        return "TIER_1"
-    if risk_score >= 0.75:
+    if risk_score >= 0.85:
+        return "UNACCEPTABLE"
+    if risk_score >= 0.65:
         return "HIGH"
     if risk_score >= 0.45:
         return "LIMITED"

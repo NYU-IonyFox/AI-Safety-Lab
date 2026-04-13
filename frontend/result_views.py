@@ -45,18 +45,18 @@ except ImportError:  # pragma: no cover - fallback keeps the module usable befor
         @staticmethod
         def tone_for_risk(risk_level: str) -> str:
             value = str(risk_level).upper()
-            if value in {"HIGH", "UNACCEPTABLE", "TIER_4", "TIER_3"}:
+            if value in {"HIGH", "UNACCEPTABLE"}:
                 return "tone-red"
-            if value in {"MEDIUM", "LIMITED", "REVIEW_REQUIRED", "TIER_2"}:
+            if value in {"MEDIUM", "LIMITED", "REVIEW_REQUIRED"}:
                 return "tone-yellow"
             return "tone-green"
 
         @staticmethod
         def risk_class(risk_level: str) -> str:
             value = str(risk_level).lower()
-            if value in {"high", "unacceptable", "tier_4", "tier_3"}:
+            if value in {"high", "unacceptable"}:
                 return "risk-high"
-            if value in {"medium", "limited", "review_required", "tier_2"}:
+            if value in {"medium", "limited", "review_required"}:
                 return "risk-medium"
             return "risk-low"
 
@@ -69,15 +69,12 @@ APP_SUBTITLE = "Stakeholder-ready council output with summary, evidence, expert 
 RISK_ORDER = {
     "UNKNOWN": 0,
     "LOW": 1,
-    "TIER_1": 1,
+    "MINIMAL": 1,
     "LIMITED": 2,
     "REVIEW_REQUIRED": 2,
     "MEDIUM": 3,
-    "TIER_2": 3,
     "HIGH": 4,
-    "TIER_3": 4,
     "UNACCEPTABLE": 5,
-    "TIER_4": 5,
 }
 
 
@@ -784,11 +781,11 @@ def _decision_copy(decision: str) -> str:
 
 def _risk_copy(risk_tier: str) -> str:
     normalized = str(risk_tier).strip().upper()
-    if normalized in {"HIGH", "UNACCEPTABLE", "TIER_4", "TIER_3"}:
+    if normalized in {"HIGH", "UNACCEPTABLE"}:
         return "The evaluated output carries a severe governance or safety concern."
-    if normalized in {"LIMITED", "MEDIUM", "REVIEW_REQUIRED", "TIER_2"}:
+    if normalized in {"LIMITED", "MEDIUM", "REVIEW_REQUIRED"}:
         return "The output is usable only with additional review and controls."
-    if normalized in {"LOW", "TIER_1"}:
+    if normalized in {"LOW", "MINIMAL"}:
         return "No major risk signal was found in this case."
     return "Risk tier synthesized from the returned expert evidence."
 
