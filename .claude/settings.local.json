@@ -4,7 +4,16 @@
       "Bash(python -m pytest tests/ -v)",
       "Bash(python -m pytest tests/ -v --tb=short)",
       "Bash(python -m pytest tests/ -v --tb=short --ignore=tests/test_api.py -q)",
-      "Bash(python -m pytest tests/test_api.py -v --tb=short -k \"not smoke_test\")"
+      "Bash(python -m pytest tests/test_api.py -v --tb=short -k \"not smoke_test\")",
+      "Bash(findstr /n \"repository-specific\" \"model_assets\\\\prompts\\\\team1_policy_expert.txt\")",
+      "Bash(findstr /n \"repository-specific\" \"model_assets\\\\prompts\\\\team2_redteam_expert.txt\")",
+      "Bash(findstr /n \"repository-specific\" \"model_assets\\\\prompts\\\\team3_risk_expert.txt\")",
+      "Bash(python -m pytest tests/ -v -k \"not smoke_test\")",
+      "Bash(python -m pytest tests/ -k \"not smoke_test\" --tb=no -q)",
+      "Bash(python -m pytest tests/ -k \"not smoke_test and not test_local_repo_submission_returns_structured_report\" --tb=short -q)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(python -m pytest tests/ -k \"test_health or test_root_describes_api_entrypoints\" --tb=short -v)",
+      "Bash(python -m pytest tests/ -k \"not smoke_test and not test_api\" --tb=short -q)"
     ]
   }
 }

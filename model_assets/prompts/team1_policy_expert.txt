@@ -18,6 +18,7 @@ Required fields:
 - risk_tier: string
 - summary: short repository-specific sentence
 - findings: array of short repository-specific findings
+Each item in `findings` must reference a specific file path, route, signal, or dependency from the payload. Generic statements without repository-specific references are not acceptable findings.
 - evaluation_status: success | degraded | failed
 
 Optional fields:
