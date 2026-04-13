@@ -405,6 +405,23 @@ def _render_overview(result: dict) -> None:
             "".join(body_parts),
         )
 
+    confidence = float(behavior.get("translation_confidence", 1.0))
+    primary_lang = behavior.get("primary_language", "unknown")
+
+    if primary_lang == "unknown":
+        pass  # already handled by existing uncertainty_flag logic, do not duplicate
+    elif confidence < 0.50:
+        st.warning(
+            f"⚠ Low translation confidence ({confidence:.2f})"
+            f" — results should be reviewed by a human"
+        )
+    elif confidence < 0.80:
+        st.info(
+            f"Translation confidence: {confidence:.2f}"
+            f" — moderate, results are provisional"
+        )
+    # confidence >= 0.80 or English input: no badge
+
 
 def _render_evidence_sections(result: dict) -> None:
     repo = result.get("repository_summary") or {}
