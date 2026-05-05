@@ -1,0 +1,5 @@
+import os
+
+SAFE_VERSION = "1.2"
+EXECUTION_MODE = os.getenv("EXECUTION_MODE", "llm_api")
+UNCERTAINTY_THRESHOLD = float(os.getenv("UNCERTAINTY_THRESHOLD", "0.60"))
