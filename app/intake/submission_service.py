@@ -88,3 +88,50 @@ def cleanup_submission(resolution: SubmissionResolution | None) -> None:
     if resolution is None or not resolution.cleanup_path:
         return
     shutil.rmtree(resolution.cleanup_path, ignore_errors=True)
+
+
+def fetch_github_content(url: str) -> dict:
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or parsed.netloc != "github.com":
+        raise SubmissionError("Only https://github.com/... URLs are supported.")
+
+    tmpdir = tempfile.mkdtemp(prefix="safe-github-")
+    try:
+        subprocess.run(
+            ["git", "clone", "--depth", "1", url, tmpdir],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+
+        from app.analyzers import summarize_repository
+
+        repo_name = Path(parsed.path.rstrip("/")).name.removesuffix(".git") or "github-repo"
+        summary = summarize_repository(tmpdir, target_name=repo_name, source_type="github_url")
+
+        root = Path(tmpdir)
+        key_files: dict[str, str] = {}
+        for rel_name in summary.notable_files:
+            file_path = root / rel_name
+            if file_path.is_file():
+                try:
+                    key_files[rel_name] = file_path.read_text(encoding="utf-8", errors="ignore")
+                except OSError:
+                    pass
+
+        structural_tags: list[str] = []
+        if summary.framework and summary.framework != "Unknown":
+            structural_tags.append(f"framework:{summary.framework}")
+        for route in summary.entrypoints[:5]:
+            structural_tags.append(f"route:{route}")
+        for dep in summary.dependencies[:5]:
+            structural_tags.append(f"dep:{dep}")
+
+        return {
+            "url": url,
+            "key_files": key_files,
+            "analyzer_summary": summary.summary,
+            "structural_tags": structural_tags,
+        }
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
