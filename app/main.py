@@ -8,7 +8,8 @@ from app.analyzers import summarize_repository
 from app.audit import ensure_storage_ready
 from app.council import synthesize_council
 from app.intake.submission_service import SubmissionError
-from app.orchestrator import SafetyLabOrchestrator
+from app.orchestrator import SafetyLabOrchestrator, run_evaluation
+from app.safe_schemas import EvidenceBundle, SAFEEvaluationResponse
 from app.schemas import AgentContext, EvaluationRequest, EvaluationResponse, SubmissionTarget
 
 logger = logging.getLogger(__name__)
@@ -240,3 +241,16 @@ def evaluate(
         return orchestrator.evaluate(request)
     except SubmissionError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post(
+    "/evaluate",
+    response_model=SAFEEvaluationResponse,
+    summary="SAFE evaluation (L3→L4 pipeline)",
+    description=(
+        "Accepts an EvidenceBundle produced by the L1–L2 pipeline and runs the "
+        "full SAFE Expert Council + Arbitration to produce a verdict."
+    ),
+)
+def evaluate_safe(bundle: EvidenceBundle) -> SAFEEvaluationResponse:
+    return run_evaluation(bundle)
