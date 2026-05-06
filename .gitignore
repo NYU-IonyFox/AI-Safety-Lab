@@ -13,3 +13,8 @@ dist/
 data/reports/
 data/audit_log.jsonl
 .DS_Store
+reports/
+*.pdf
+model_cache/
+*.safetensors
+*.bin
