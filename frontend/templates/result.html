@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Inter',sans-serif;background:#F0EDE8;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:2rem 2rem 120px;}
+body{font-family:'Inter',sans-serif;background:#F0EDE8;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:2rem;}
 
 .page{display:flex;min-height:700px;border:0.5px solid #C8C0B8;border-radius:14px;overflow:hidden;font-family:'Inter',sans-serif;width:100%;max-width:960px;}
 
@@ -30,6 +30,7 @@ body{font-family:'Inter',sans-serif;background:#F0EDE8;min-height:100vh;display:
 
 /* RIGHT */
 .right{flex:1;background:#FAFAF8;overflow-y:auto;display:flex;flex-direction:column;min-width:0;}
+#right-panel{flex:1;}
 
 /* VERDICT HERO */
 .verdict-hero{padding:2rem 1.75rem 1.5rem;border-bottom:0.5px solid #E7E5E4;}
@@ -39,11 +40,11 @@ body{font-family:'Inter',sans-serif;background:#F0EDE8;min-height:100vh;display:
 .vh-vblock{flex-shrink:0;}
 .vh-verdict{font-family:'Playfair Display',Georgia,serif;font-size:48px;font-weight:700;line-height:1;}
 .vh-verdict.reject{color:#A32D2D;}
-.vh-verdict.hold,.vh-verdict.review{color:#854F0B;}
+.vh-verdict.hold{color:#854F0B;}
 .vh-verdict.approve{color:#3B6D11;}
 .vh-badge{font-size:10px;font-weight:500;padding:3px 10px;border-radius:4px;display:inline-block;margin-top:5px;}
 .vh-badge.reject{background:#FCEBEB;color:#A32D2D;}
-.vh-badge.hold,.vh-badge.review{background:#FAEEDA;color:#854F0B;}
+.vh-badge.hold{background:#FAEEDA;color:#854F0B;}
 .vh-badge.approve{background:#EAF3DE;color:#3B6D11;}
 .vh-reason{flex:1;}
 .vh-rl{font-size:9px;color:#A8A29E;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.35rem;}
@@ -64,7 +65,6 @@ body{font-family:'Inter',sans-serif;background:#F0EDE8;min-height:100vh;display:
 /* ADDITIONAL FINDINGS */
 .af-item{margin-bottom:10px;padding-bottom:10px;border-bottom:0.5px solid #F0EDE9;}
 .af-item:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
-.af-title{font-size:10.5px;font-weight:600;color:#1C1917;margin-bottom:4px;}
 .af-bullets{list-style:none;padding:0;}
 .af-bullets li{font-size:9.5px;color:#78716C;padding:2px 0 2px 12px;position:relative;line-height:1.5;}
 .af-bullets li::before{content:'·';position:absolute;left:0;color:#A8A29E;}
@@ -77,8 +77,6 @@ body{font-family:'Inter',sans-serif;background:#F0EDE8;min-height:100vh;display:
 .ctx-row:last-child{border:none;}
 .ctx-k{color:#78716C;flex-shrink:0;}
 .ctx-v{color:#1C1917;font-weight:500;text-align:right;}
-.ctx-signals{display:flex;flex-wrap:wrap;gap:4px;}
-.ctx-signal{font-size:9px;padding:2px 8px;border-radius:4px;background:#F5F0EB;color:#44403C;}
 
 /* EXPERT CARDS */
 .expert-row{display:flex;gap:10px;align-items:flex-start;}
@@ -91,10 +89,13 @@ body{font-family:'Inter',sans-serif;background:#F0EDE8;min-height:100vh;display:
 .ec-role{font-size:8.5px;color:rgba(255,255,255,0.6);}
 .ec-body{padding:10px 13px 0;height:140px;display:flex;flex-direction:column;}
 .ec-risk-wrap{margin-bottom:6px;flex-shrink:0;}
+
+/* Overall risk pill — dark bg, white text (Step 5) */
 .ec-risk{font-size:13px;font-weight:700;padding:5px 12px;border-radius:6px;display:inline-block;}
-.ec-risk.hi{background:#FCEBEB;color:#A32D2D;}
-.ec-risk.md{background:#FAEEDA;color:#854F0B;}
-.ec-risk.lo{background:#EAF3DE;color:#3B6D11;}
+.ec-risk.hi{background:#A32D2D;color:#ffffff;}
+.ec-risk.md{background:#854F0B;color:#ffffff;}
+.ec-risk.lo{background:#3B6D11;color:#ffffff;}
+
 .ec-trigger{font-size:8.5px;margin-top:3px;font-weight:500;}
 .ec-dims{display:flex;gap:3px;flex-wrap:wrap;margin-top:8px;}
 .dim-pill{font-size:7.5px;padding:2px 7px;border-radius:100px;border:0.5px solid;}
@@ -108,6 +109,8 @@ body{font-family:'Inter',sans-serif;background:#F0EDE8;min-height:100vh;display:
 .ds-row:last-child{border:none;}
 .ds-name{font-size:9px;flex:1;}
 .ds-core{font-size:7.5px;font-weight:500;padding:1px 5px;border-radius:3px;background:#F0EDE9;color:#78716C;margin-right:5px;flex-shrink:0;}
+
+/* Dimension score tags — light colors unchanged (Step 5) */
 .ds-tag{font-size:8px;font-weight:700;padding:1.5px 7px;border-radius:3px;flex-shrink:0;min-width:32px;text-align:center;}
 .ds-tag.hi{background:#FCEBEB;color:#A32D2D;}
 .ds-tag.md{background:#FAEEDA;color:#854F0B;}
@@ -161,8 +164,8 @@ body{font-family:'Inter',sans-serif;background:#F0EDE8;min-height:100vh;display:
 /* RAW JSON */
 .raw-pre{font-family:monospace;font-size:8.5px;color:#44403C;background:#fff;border:0.5px solid #E7E5E4;border-radius:7px;padding:10px 12px;max-height:140px;overflow-y:auto;line-height:1.6;white-space:pre-wrap;word-break:break-all;}
 
-/* DOWNLOAD BAR */
-.dl-bar{padding:1rem 1.75rem;background:#F5F0EB;border-top:0.5px solid #E7E5E4;display:flex;gap:10px;align-items:center;position:sticky;bottom:0;}
+/* DOWNLOAD BAR — static, flows at bottom (Step 4) */
+.dl-bar{padding:1rem 1.75rem;background:#F5F0EB;border-top:0.5px solid #E7E5E4;display:flex;gap:10px;align-items:center;}
 .dl-label{font-size:10px;color:#78716C;flex:1;}
 .dl-grp{display:flex;flex-direction:column;align-items:center;gap:2px;}
 .dl-btn{font-size:10.5px;font-weight:500;padding:8px 16px;border-radius:7px;border:none;cursor:pointer;font-family:'Inter',sans-serif;transition:background 0.15s;}
@@ -193,50 +196,27 @@ body{font-family:'Inter',sans-serif;background:#F0EDE8;min-height:100vh;display:
   </div>
 
   <!-- RIGHT -->
-  <div class="right" id="right-panel">
-    <div class="loading-msg" id="loading-msg">Loading evaluation result…</div>
+  <div class="right">
+    <div id="right-panel">
+      <div class="loading-msg">Loading evaluation result…</div>
+    </div>
   </div>
 
-</div>
-
-<!-- DOWNLOAD BAR (fixed bottom) -->
-<div class="dl-bar" id="dl-bar" style="display:none;position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);width:calc(100% - 4rem);max-width:960px;border-radius:0 0 14px 14px;border:0.5px solid #C8C0B8;border-top:0.5px solid #E7E5E4;">
-  <div class="dl-label">Download evaluation report</div>
-  <div class="dl-grp">
-    <button class="dl-btn pdf" id="dl-pdf">Download PDF report</button>
-    <div class="dl-hint">For human reviewers &amp; governance records</div>
-  </div>
-  <div class="dl-grp">
-    <button class="dl-btn json" id="dl-json">Download JSON log</button>
-    <div class="dl-hint">For technical teams &amp; downstream processing</div>
-  </div>
 </div>
 
 <script>
-/* ── Expert metadata ── */
-var EXPERT_INFO={
-  'team3_risk_expert':{num:1,name:'Adversarial Security',role:'Jailbreak · Injection · Multilingual',cls:'e1'},
-  'team2_redteam_expert':{num:2,name:'Content Safety',role:'Harmful Content · Data · Bias',cls:'e2'},
-  'team1_policy_expert':{num:3,name:'Governance & UN',role:'Compliance · Neutrality · Equity',cls:'e3'}
+/* ── Expert metadata (new SAFEEvaluationResponse IDs) ── */
+var SAFE_EXPERT_INFO={
+  'expert_adversarial_security':{num:1,name:'Adversarial Security',role:'Jailbreak · Injection · Multilingual',cls:'e1'},
+  'expert_content_safety':      {num:2,name:'Content Safety',role:'Harmful Content · Data · Bias',cls:'e2'},
+  'expert_governance_un':       {num:3,name:'Governance & UN',role:'Compliance · Neutrality · Equity',cls:'e3'}
 };
-var EXPERT_BY_NUM=[null,
-  {id:'team3_risk_expert',name:'Adversarial Security',role:'Jailbreak · Injection · Multilingual',cls:'e1'},
-  {id:'team2_redteam_expert',name:'Content Safety',role:'Harmful Content · Data · Bias',cls:'e2'},
-  {id:'team1_policy_expert',name:'Governance & UN',role:'Compliance · Neutrality · Equity',cls:'e3'}
-];
+var SAFE_EXPERT_ORDER=['expert_adversarial_security','expert_content_safety','expert_governance_un'];
 
 var VERDICT_MAP={
   'REJECT':{cls:'reject',badge:'Do not deploy into UNICC systems'},
-  'REVIEW':{cls:'hold',badge:'Human review required'},
-  'HOLD':{cls:'hold',badge:'Human review required'},
+  'HOLD':  {cls:'hold',  badge:'Human review required'},
   'APPROVE':{cls:'approve',badge:'Cleared for UNICC deployment'}
-};
-
-var BADGE_LABEL={
-  'REJECT':'REJECT',
-  'REVIEW':'HOLD',
-  'HOLD':'HOLD',
-  'APPROVE':'APPROVE'
 };
 
 var evalData=null;
@@ -244,7 +224,7 @@ var evalId='';
 
 /* ── Helpers ── */
 function h(s){
-  if(!s&&s!==0) return '—';
+  if(s===null||s===undefined) return '—';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
@@ -263,7 +243,6 @@ function togDs(id,btn){
   btn.textContent=el.classList.contains('open')?'▾ Hide dimension scores':'▸ See dimension scores';
 }
 
-/* ── Risk tier → CSS class ── */
 function tierCls(t){
   if(!t) return 'lo';
   var u=t.toUpperCase();
@@ -276,40 +255,50 @@ function tierLabel(t){
   if(!t) return 'LOW';
   var u=t.toUpperCase();
   if(u==='HIGH') return 'HIGH';
-  if(u==='MEDIUM') return 'MEDIUM';
-  if(u==='MED') return 'MEDIUM';
+  if(u==='MEDIUM'||u==='MED') return 'MEDIUM';
   return 'LOW';
 }
 
-/* ── Build expert card HTML ── */
-function buildExpertCard(expert, info, idx){
-  var eId='e'+idx+'ds';
-  var riskCls=tierCls(expert.risk_tier);
-  var riskLbl=tierLabel(expert.risk_tier);
+/* ── Order experts in display order ── */
+function orderSafeExperts(experts){
+  var byId={};
+  (experts||[]).forEach(function(e){ byId[e.id]=e; });
+  return SAFE_EXPERT_ORDER.map(function(id){
+    return byId[id]||{id:id,overall:'LOW',triggered_dimensions:[]};
+  });
+}
 
-  // Trigger text
+/* ── Build expert card for SAFEEvaluationResponse ── */
+function buildSafeExpertCard(expert,info,idx){
+  var eId='e'+idx+'ds';
+  var overallCls=tierCls(expert.overall);
+  var overallLbl=tierLabel(expert.overall);
+  var dims=expert.triggered_dimensions||[];
+
   var triggerText='';
-  if(expert.risk_tier&&expert.risk_tier.toUpperCase()==='HIGH') triggerText='CORE dimension triggered';
-  else if(expert.risk_tier&&expert.risk_tier.toUpperCase()==='MEDIUM') triggerText='IMPORTANT dimension triggered';
+  if(expert.overall==='HIGH') triggerText='CORE dimension triggered';
+  else if(expert.overall==='MEDIUM') triggerText=dims.length+' dimension'+(dims.length!==1?'s':'')+' flagged';
   else triggerText='All dimensions within acceptable range';
 
-  // Pills from findings (first 4)
-  var findings=expert.findings||[];
-  var pills=findings.slice(0,4).map(function(f){
-    var short=f.length>28?f.slice(0,25)+'…':f;
+  // Pills from triggered dimensions (first 4)
+  var pills=dims.slice(0,4).map(function(d){
+    var short=d.display_name.length>28?d.display_name.slice(0,25)+'…':d.display_name;
     return '<div class="dim-pill '+info.cls+'">'+h(short)+'</div>';
   }).join('');
   if(!pills) pills='<div class="dim-pill '+info.cls+'" style="color:#A8A29E;border-color:#D6D3D1;">No findings</div>';
 
-  // Dimension score rows from findings
-  var scoreRows=findings.map(function(f,i){
-    var lvl=i===0&&riskCls==='hi'?'hi':i<2&&riskCls!=='lo'?riskCls:'lo';
-    var lbl=lvl==='hi'?'HIGH':lvl==='md'?'MED':'LOW';
-    return '<div class="ds-row"><span class="ds-name '+info.cls+'">'+h(f)+'</span><span class="ds-tag '+lvl+'">'+lbl+'</span></div>';
+  // Dimension score rows
+  var scoreRows=dims.map(function(d){
+    var lvl=tierCls(d.level);
+    var lbl=tierLabel(d.level);
+    return '<div class="ds-row">'
+      +'<span class="ds-name '+info.cls+'">'+h(d.display_name)+'</span>'
+      +(d.tier==='CORE'?'<span class="ds-core">CORE</span>':'')
+      +'<span class="ds-tag '+lvl+'">'+lbl+'</span>'
+      +'</div>';
   }).join('');
-
   if(!scoreRows){
-    scoreRows='<div class="ds-row"><span class="ds-name '+info.cls+'" style="color:#A8A29E;">No dimension detail available</span></div>';
+    scoreRows='<div class="ds-row"><span class="ds-name '+info.cls+'" style="color:#A8A29E;">No dimensions triggered</span></div>';
   }
 
   return '<div class="ec-wrap '+info.cls+'">'
@@ -321,7 +310,7 @@ function buildExpertCard(expert, info, idx){
       +'</div>'
       +'<div class="ec-body">'
         +'<div class="ec-risk-wrap">'
-          +'<div class="ec-risk '+riskCls+'">'+riskLbl+'</div>'
+          +'<div class="ec-risk '+overallCls+'">'+overallLbl+'</div>'
           +'<div class="ec-trigger">'+h(triggerText)+'</div>'
         +'</div>'
         +'<div class="ec-dims">'+pills+'</div>'
@@ -335,60 +324,94 @@ function buildExpertCard(expert, info, idx){
   +'</div>';
 }
 
-/* ── Order experts: team3→e1, team2→e2, team1→e3 ── */
-function orderExperts(experts){
-  var order=['team3_risk_expert','team2_redteam_expert','team1_policy_expert'];
-  var result=[];
-  order.forEach(function(id){
-    var found=null;
-    if(experts){
-      for(var i=0;i<experts.length;i++){
-        if(experts[i].expert_name===id){found=experts[i];break;}
+/* ── Build regulatory violations from SAFEEvaluationResponse ── */
+function buildRegViolations(data){
+  var items=[];
+  (data.experts||[]).forEach(function(ex){
+    var info=SAFE_EXPERT_INFO[ex.id]||{name:ex.id};
+    (ex.triggered_dimensions||[]).forEach(function(dim){
+      if(dim.level!=='LOW'){
+        items.push({sev:dim.level,fw:dim.regulatory_anchor||dim.display_name,prov:dim.reason||'',src:info.name});
       }
-    }
-    result.push(found||{expert_name:id,risk_tier:'LOW',findings:[],summary:''});
+    });
   });
-  return result;
+  if(!items.length){
+    return '<div style="font-size:9.5px;color:#A8A29E;">No regulatory violations recorded in this evaluation.</div>';
+  }
+  return '<div class="reg-list">'+items.map(function(item){
+    var sc=tierCls(item.sev);
+    return '<div class="reg-item">'
+      +'<div class="reg-sev '+sc+'">'+h(tierLabel(item.sev))+'</div>'
+      +'<div>'
+        +'<div class="reg-fw">'+h(item.fw)+'</div>'
+        +'<div class="reg-prov">'+h(item.prov)+'</div>'
+        +'<div class="reg-src">'+h(item.src)+'</div>'
+      +'</div>'
+    +'</div>';
+  }).join('')+'</div>';
 }
 
-/* ── Render full result ── */
+/* ── Build evidence quality from SAFEEvaluationResponse ── */
+function buildEvidenceQuality(data){
+  var chips=[];
+  (data.experts||[]).forEach(function(ex){
+    var info=SAFE_EXPERT_INFO[ex.id]||{name:ex.id};
+    var dims=ex.triggered_dimensions||[];
+    var weakCount=dims.filter(function(d){return d.evidence_quality==='Weak';}).length;
+    var strongCount=dims.filter(function(d){return d.evidence_quality==='Strong';}).length;
+    var q=weakCount>0?'Weak':(dims.length>0&&strongCount===dims.length?'Strong':'Partial');
+    if(dims.length===0) q='Strong';
+    chips.push({name:info.name,q:q});
+  });
+  var chipsHtml=chips.map(function(c){
+    return '<div class="eq-chip'+(c.q==='Weak'?' weak':'')+'">'+h(c.name)+' &mdash; '+h(c.q)+'</div>';
+  }).join('');
+  if(!chipsHtml) chipsHtml='<div class="eq-chip">No evidence quality data</div>';
+  return '<div class="eq-chips">'+chipsHtml+'</div>'
+    +'<div class="eq-note">Evidence quality reflects the richness of dimension-level evidence collected per expert.</div>';
+}
+
+/* ── Download helpers ── */
+function dlPdf(){
+  window.open('/v1/evaluations/'+encodeURIComponent(evalId)+'/pdf','_blank');
+}
+function dlJson(){
+  window.open('/v1/evaluations/'+encodeURIComponent(evalId)+'/json','_blank');
+}
+
+/* ── Render full result from SAFEEvaluationResponse ── */
 function renderResult(data){
-  var verdict=data.decision||'REVIEW';
-  var vinfo=VERDICT_MAP[verdict]||VERDICT_MAP['REVIEW'];
-  var vbadgeLabel=BADGE_LABEL[verdict]||'HOLD';
-  var cr=data.council_result||{};
-  var ctx=data.submission||{};
-  var bs=data.behavior_summary||{};
+  var verdict=data.verdict||'HOLD';
+  var vinfo=VERDICT_MAP[verdict]||VERDICT_MAP['HOLD'];
+  var vbadgeLabel=verdict==='REJECT'?'REJECT':verdict==='APPROVE'?'APPROVE':'HOLD';
 
-  var projectName=ctx.target_name||cr.rationale&&'Evaluation'||'Unnamed';
-  // Try to get project name from context in stored data
-  if(data._target_name) projectName=data._target_name;
-  if(data.submission&&data.submission.target_name) projectName=data.submission.target_name;
-  else if(data.expert_input&&data.expert_input.context&&data.expert_input.context.agent_name) projectName=data.expert_input.context.agent_name;
+  var sc=data.submission_context||{};
+  var targetName=sc.target_name||sc.target||'Unnamed';
 
-  var inputLabel=data._input_label||'GitHub URL';
+  var pr=data.primary_reason||{};
+  var ruleRef=pr.rule||'—';
+  var expertSummary=pr.expert_summary||{};
+  var summaryParts=Object.keys(expertSummary).map(function(k){return k+': '+expertSummary[k];});
+  var rationale=summaryParts.length?summaryParts.join(' · '):'Evaluation complete.';
+
+  var additionalFindings=data.additional_findings||[];
+  var recommendations=data.recommendations||[];
+  var tr=data.translation_report||{};
+
+  var inputLabel=data._input_label||(sc.input_type?sc.input_type.replace('_',' '):'Conversation');
   var execMode=data._exec_mode||'LLM API';
   var duration=data._duration_sec?data._duration_sec+' sec':'—';
 
-  var rationale=cr.rationale||'No primary reason provided.';
-  var ruleRef=cr.decision_rule_triggered||'—';
+  var experts=orderSafeExperts(data.experts||[]);
 
-  var additionalFindings=[];
-  if(cr.key_evidence&&cr.key_evidence.length) additionalFindings=additionalFindings.concat(cr.key_evidence);
-  if(cr.triggered_by&&cr.triggered_by.length) additionalFindings=additionalFindings.concat(cr.triggered_by);
-
-  var recommendations=cr.recommended_actions||[];
-
-  var experts=orderExperts(data.experts);
-
-  /* Build expert cards */
+  /* Expert cards */
   var expertCards=experts.map(function(ex,i){
     var num=i+1;
-    var info=EXPERT_INFO[ex.expert_name]||{num:num,name:'Expert '+num,role:'—',cls:['','e1','e2','e3'][num]||'e1'};
-    return buildExpertCard(ex,info,num);
+    var info=SAFE_EXPERT_INFO[ex.id]||{num:num,name:'Expert '+num,role:'—',cls:['','e1','e2','e3'][num]||'e1'};
+    return buildSafeExpertCard(ex,info,num);
   }).join('');
 
-  /* Additional findings list */
+  /* Additional findings */
   var afHtml='';
   if(additionalFindings.length){
     afHtml=additionalFindings.map(function(f){
@@ -402,48 +425,51 @@ function renderResult(data){
   var recHtml='';
   if(recommendations.length){
     recHtml=recommendations.map(function(r,i){
-      var txt=typeof r==='string'?r:(r.text||r.action||JSON.stringify(r));
-      var src=r.source||r.expert||'';
-      return '<div class="rec-item"><div class="rec-num">'+String(i+1).padStart(2,'0')+'</div>'
-        +'<div class="rec-text">'+h(txt)+(src?'<br><span class="rec-source">&mdash; '+h(src)+'</span>':'')+'</div></div>';
+      var txt=typeof r==='string'?r:(r.text||'');
+      var src=r.source_expert||'';
+      var dim=r.source_dimension||'';
+      return '<div class="rec-item">'
+        +'<div class="rec-num">'+String(i+1).padStart(2,'0')+'</div>'
+        +'<div class="rec-text">'+h(txt)+(src?'<br><span class="rec-source">&mdash; '+h(src)+(dim?' / '+h(dim):'')+'</span>':'')+'</div>'
+        +'</div>';
     }).join('');
   } else {
     recHtml='<div style="font-size:9.5px;color:#A8A29E;">No recommendations recorded.</div>';
   }
 
   /* Submission context */
-  var ctxSysHtml='<div class="ctx-row"><span class="ctx-k">Target</span><span class="ctx-v">'+h(projectName)+'</span></div>'
-    +'<div class="ctx-row"><span class="ctx-k">Source type</span><span class="ctx-v">'+h(inputLabel)+'</span></div>';
-  if(ctx.github_url) ctxSysHtml+='<div class="ctx-row"><span class="ctx-k">GitHub URL</span><span class="ctx-v" style="font-size:9px;word-break:break-all;">'+h(ctx.github_url)+'</span></div>';
+  var ctxSysHtml='<div class="ctx-row"><span class="ctx-k">Target</span><span class="ctx-v">'+h(targetName)+'</span></div>'
+    +'<div class="ctx-row"><span class="ctx-k">Input type</span><span class="ctx-v">'+h(inputLabel)+'</span></div>'
+    +'<div class="ctx-row"><span class="ctx-k">Verdict</span><span class="ctx-v">'+h(vbadgeLabel)+'</span></div>';
 
   /* Translation */
-  var tr=(data.behavior_summary)||{};
-  var trApplied=tr.translation_confidence!==undefined?'Yes':'No — input is English';
-  var trLang=tr.primary_language||'English';
-  var trJailbreak=tr.multilingual_jailbreak_forced_low?'Suspected':'No';
+  var trApplied=tr.translation_applied?'Yes':'No — input is English';
+  var trLang=tr.primary_language||'en';
+  var trJailbreak=tr.multilingual_jailbreak_suspected?'Suspected':'No';
+  var trConf=tr.confidence_qualitative||(tr.confidence_numeric!==undefined&&tr.confidence_numeric!==null?parseFloat(tr.confidence_numeric).toFixed(2):'N/A');
 
-  /* Raw JSON: strip large fields */
+  /* Raw JSON */
   var rawData={
     evaluation_id:data.evaluation_id,
-    decision:data.decision,
-    council_result:{decision:cr.decision,decision_rule_triggered:cr.decision_rule_triggered},
-    experts:(data.experts||[]).map(function(e){return{expert_name:e.expert_name,risk_tier:e.risk_tier};})
+    verdict:data.verdict,
+    primary_reason:pr,
+    experts:(data.experts||[]).map(function(e){return{id:e.id,overall:e.overall,triggered:e.triggered_dimensions.length};})
   };
 
   var html=
   /* Verdict hero */
   '<div class="verdict-hero">'
     +'<div class="vh-eyebrow">Evaluation complete</div>'
-    +'<div class="vh-project">'+h(projectName)+'</div>'
+    +'<div class="vh-project">'+h(targetName)+'</div>'
     +'<div class="vh-main">'
       +'<div class="vh-vblock">'
         +'<div class="vh-verdict '+vinfo.cls+'">'+h(vbadgeLabel)+'</div>'
         +'<div class="vh-badge '+vinfo.cls+'">'+h(vinfo.badge)+'</div>'
       +'</div>'
       +'<div class="vh-reason">'
-        +'<div class="vh-rl">Primary decision reason</div>'
+        +'<div class="vh-rl">Expert risk levels</div>'
         +'<div class="vh-rt">'+h(rationale)+'</div>'
-        +'<div class="vh-rule">Rule '+h(ruleRef)+' triggered &mdash; '+h(verdict==='REVIEW'?'HOLD':verdict)+' verdict</div>'
+        +'<div class="vh-rule">Rule '+h(ruleRef)+' triggered &mdash; '+h(vbadgeLabel)+' verdict</div>'
       +'</div>'
     +'</div>'
     +'<div class="vh-meta">'
@@ -454,13 +480,13 @@ function renderResult(data){
     +'</div>'
   +'</div>'
 
-  /* Additional findings (default collapsed) */
+  /* Additional findings (collapsed) */
   +'<div class="section">'
     +'<div class="st" onclick="tog(\'af\',\'af-h\')">Additional findings<span class="st-hint" id="af-h">&#9658; expand</span><div class="st-line"></div></div>'
     +'<div class="sb" id="af">'+afHtml+'</div>'
   +'</div>'
 
-  /* Submission context (default collapsed) */
+  /* Submission context (collapsed) */
   +'<div class="section">'
     +'<div class="st" onclick="tog(\'ctx\',\'ctx-h\')">Submission context<span class="st-hint" id="ctx-h">&#9658; expand</span><div class="st-line"></div></div>'
     +'<div class="sb" id="ctx">'
@@ -468,13 +494,14 @@ function renderResult(data){
         +'<div class="ctx-card"><div class="ctx-label">System information</div>'+ctxSysHtml+'</div>'
         +'<div class="ctx-card"><div class="ctx-label">Evaluation metadata</div>'
           +'<div class="ctx-row"><span class="ctx-k">Mode</span><span class="ctx-v">'+h(execMode)+'</span></div>'
-          +'<div class="ctx-row"><span class="ctx-k">Version</span><span class="ctx-v">'+(data.version&&data.version.schema_version?h(data.version.schema_version):'v3')+'</span></div>'
+          +'<div class="ctx-row"><span class="ctx-k">SAFE version</span><span class="ctx-v">'+h(data.safe_version||'—')+'</span></div>'
+          +'<div class="ctx-row"><span class="ctx-k">Timestamp</span><span class="ctx-v" style="font-size:9px;">'+h((data.timestamp||'').replace('T',' ').slice(0,19))+'</span></div>'
         +'</div>'
       +'</div>'
     +'</div>'
   +'</div>'
 
-  /* Expert Council (default open) */
+  /* Expert Council (open by default) */
   +'<div class="section">'
     +'<div class="st" onclick="tog(\'exp\',\'exp-h\')">Expert Council<span class="st-hint" id="exp-h">&#9660; collapse</span><div class="st-line"></div></div>'
     +'<div class="sb open" id="exp">'
@@ -501,130 +528,94 @@ function renderResult(data){
       +'<div class="tl-grid">'
         +'<div class="tl-item"><div class="tl-label">Primary language</div><div class="tl-val">'+h(trLang)+'</div></div>'
         +'<div class="tl-item"><div class="tl-label">Translation applied</div><div class="tl-val">'+h(trApplied)+'</div></div>'
-        +'<div class="tl-item"><div class="tl-label">Multilingual jailbreak suspected</div><div class="tl-val">'+h(trJailbreak)+'</div></div>'
-        +'<div class="tl-item"><div class="tl-label">Translation confidence</div><div class="tl-val">N/A</div></div>'
+        +'<div class="tl-item"><div class="tl-label">Multilingual jailbreak</div><div class="tl-val">'+h(trJailbreak)+'</div></div>'
+        +'<div class="tl-item"><div class="tl-label">Confidence</div><div class="tl-val">'+h(trConf)+'</div></div>'
       +'</div>'
     +'</div>'
   +'</div>'
 
-  /* Recommendations (always expanded) */
+  /* Recommendations (always open) */
   +'<div class="section">'
     +'<div class="st">Recommendations<div class="st-line"></div></div>'
     +'<div style="margin-top:0.85rem"><div class="rec-list">'+recHtml+'</div></div>'
   +'</div>'
 
-  /* Raw payload (collapsed) */
+  /* Raw JSON (collapsed) */
   +'<div class="section">'
     +'<div class="st" onclick="tog(\'raw\',\'raw-h\')">Raw evaluation payload<span class="st-hint" id="raw-h">&#9658; expand</span><div class="st-line"></div></div>'
     +'<div class="sb" id="raw"><div class="raw-pre">'+h(JSON.stringify(rawData,null,2))+'</div></div>'
   +'</div>'
 
-  /* spacer for download bar */
-  +'<div style="height:4rem;"></div>';
+  /* Download bar — static at bottom (Step 4) */
+  +'<div class="dl-bar">'
+    +'<div class="dl-label">Download evaluation report</div>'
+    +'<div class="dl-grp">'
+      +'<button class="dl-btn pdf" onclick="dlPdf()">Download PDF report</button>'
+      +'<div class="dl-hint">For human reviewers &amp; governance records</div>'
+    +'</div>'
+    +'<div class="dl-grp">'
+      +'<button class="dl-btn json" onclick="dlJson()">Download JSON log</button>'
+      +'<div class="dl-hint">For technical teams &amp; downstream processing</div>'
+    +'</div>'
+  +'</div>';
 
   document.getElementById('right-panel').innerHTML=html;
-
-  /* Show download bar */
-  document.getElementById('dl-bar').style.display='flex';
-  document.getElementById('dl-pdf').onclick=function(){
-    window.open('/v1/evaluations/'+encodeURIComponent(evalId)+'/pdf','_blank');
-  };
-  document.getElementById('dl-json').onclick=function(){
-    window.open('/v1/evaluations/'+encodeURIComponent(evalId)+'/json','_blank');
-  };
 }
 
-function buildRegViolations(data){
-  var cr=data.council_result||{};
-  var experts=data.experts||[];
-  var items=[];
-  experts.forEach(function(ex){
-    if(ex.detail_payload&&ex.detail_payload.violations){
-      ex.detail_payload.violations.forEach(function(v){
-        items.push({sev:ex.risk_tier,fw:v.framework||v.policy||'',prov:v.reason||v.provision||'',src:ex.expert_name});
-      });
-    }
-    if(ex.detail_payload&&ex.detail_payload.policy_alerts){
-      ex.detail_payload.policy_alerts.forEach(function(a){
-        if(a.status!=='pass'){
-          items.push({sev:a.status==='fail'?'HIGH':'MEDIUM',fw:a.policy||'',prov:a.reason||'',src:ex.expert_name});
-        }
-      });
-    }
-  });
-  if(!items.length){
-    return '<div style="font-size:9.5px;color:#A8A29E;">No regulatory violations recorded in this evaluation.</div>';
-  }
-  return '<div class="reg-list">'+items.map(function(item){
-    var sc=tierCls(item.sev);
-    return '<div class="reg-item">'
-      +'<div class="reg-sev '+sc+'">'+h(tierLabel(item.sev))+'</div>'
-      +'<div>'
-        +'<div class="reg-fw">'+h(item.fw)+'</div>'
-        +'<div class="reg-prov">'+h(item.prov)+'</div>'
-        +'<div class="reg-src">'+h(item.src)+'</div>'
-      +'</div>'
+/* ── Data loading (Step 1) ── */
+function showNoData(){
+  document.getElementById('right-panel').innerHTML=
+    '<div class="no-data-msg">'
+    +'<div style="font-size:13px;font-weight:600;color:#1C1917;margin-bottom:8px;">No evaluation result found</div>'
+    +'<div style="font-size:11px;color:#78716C;"><a href="/">&#8592; Start a new evaluation</a></div>'
     +'</div>';
-  }).join('')+'</div>';
 }
 
-function buildEvidenceQuality(data){
-  var experts=data.experts||[];
-  var chips=[];
-  experts.forEach(function(ex){
-    var inf=EXPERT_INFO[ex.expert_name];
-    var name=inf?inf.name:ex.expert_name;
-    var q=ex.evaluation_status==='success'?'Strong':ex.evaluation_status==='degraded'?'Partial':'Weak';
-    chips.push({name:name,q:q});
-  });
-  var chipsHtml=chips.map(function(c){
-    return '<div class="eq-chip'+(c.q==='Weak'?' weak':'')+'">'+h(c.name)+' &mdash; '+h(c.q)+'</div>';
-  }).join('');
-  if(!chipsHtml) chipsHtml='<div class="eq-chip">No evidence quality data</div>';
-  return '<div class="eq-chips">'+chipsHtml+'</div>'
-    +'<div class="eq-note">Evidence quality reflects the richness of the submitted artifact. Conversation evidence typically yields the strongest behavioral signal on jailbreak and bias dimensions.</div>';
-}
-
-/* ── Load data ── */
 function loadResult(){
   var params=new URLSearchParams(window.location.search);
   evalId=params.get('id')||'';
 
-  // Try sessionStorage first
-  var stored=null;
-  try{ stored=JSON.parse(sessionStorage.getItem('safe_result')); } catch(e){}
-
-  if(stored&&(!evalId||stored.evaluation_id===evalId)){
-    evalData=stored;
-    renderResult(evalData);
-    return;
-  }
-
-  // If evalId mismatch or no sessionStorage, fetch JSON archive
   if(evalId){
-    fetch('/v1/evaluations/'+encodeURIComponent(evalId)+'/json')
+    /* Always fetch from API when id is present — ignore sessionStorage */
+    fetch('/v1/evaluations/'+encodeURIComponent(evalId))
       .then(function(r){
         if(!r.ok) throw new Error('Not found');
         return r.json();
       })
       .then(function(d){
+        /* Merge client-side metadata from sessionStorage if the ids match */
+        try{
+          var stored=JSON.parse(sessionStorage.getItem('safe_result')||'null');
+          if(stored&&stored.evaluation_id===d.evaluation_id){
+            d._duration_sec=stored._duration_sec;
+            d._input_label=stored._input_label;
+            d._exec_mode=stored._exec_mode;
+          }
+        }catch(e){}
         evalData=d;
         renderResult(evalData);
       })
       .catch(function(){
         document.getElementById('right-panel').innerHTML=
           '<div class="no-data-msg">'
-          +'<div style="font-size:13px;font-weight:600;color:#1C1917;margin-bottom:8px;">Result not found</div>'
+          +'<div style="font-size:13px;font-weight:600;color:#1C1917;margin-bottom:8px;">Result not available</div>'
           +'<div style="font-size:11px;color:#78716C;">Evaluation ID: <code>'+h(evalId)+'</code></div>'
           +'<div style="font-size:11px;color:#78716C;margin-top:8px;"><a href="/">&#8592; Run a new evaluation</a></div>'
           +'</div>';
       });
   } else {
-    document.getElementById('right-panel').innerHTML=
-      '<div class="no-data-msg">'
-      +'<div style="font-size:13px;font-weight:600;color:#1C1917;margin-bottom:8px;">No evaluation result found</div>'
-      +'<div style="font-size:11px;color:#78716C;"><a href="/">&#8592; Start a new evaluation</a></div>'
-      +'</div>';
+    /* No id in URL — fall back to sessionStorage */
+    var raw=null;
+    try{raw=sessionStorage.getItem('safe_result');}catch(e){}
+    if(raw){
+      try{
+        evalData=JSON.parse(raw);
+        evalId=evalData.evaluation_id||'';
+        renderResult(evalData);
+      }catch(e){ showNoData(); }
+    } else {
+      showNoData();
+    }
   }
 }
 

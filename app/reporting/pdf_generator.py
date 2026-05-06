@@ -250,6 +250,35 @@ def _cover_background(canvas, doc, verdict: str) -> None:
         canvas.restoreState()
 
 
+def generate_pdf_bytes(response: SAFEEvaluationResponse) -> bytes:
+    """Generate a 4-page PDF report and return it as raw bytes (no file I/O)."""
+    from io import BytesIO
+    verdict = response.verdict
+    sty = _styles(verdict)
+    vc = _COLORS.get(verdict, _COLORS["HOLD"])
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=A4,
+        leftMargin=2 * cm,
+        rightMargin=2 * cm,
+        topMargin=2 * cm,
+        bottomMargin=2 * cm,
+    )
+    story: list = []
+    story.extend(_cover_page(response, sty, vc))
+    story.extend(_exec_summary_page(response, sty))
+    story.extend(_expert_findings_page(response, sty))
+    story.extend(_regulatory_page(response, sty))
+
+    def _on_page(canvas, doc_):
+        _cover_background(canvas, doc_, verdict)
+
+    doc.build(story, onFirstPage=_on_page, onLaterPages=_on_page)
+    return buf.getvalue()
+
+
 def generate_pdf(response: SAFEEvaluationResponse, path: str) -> str:
     """Generate a 4-page PDF report and write it to *path*. Returns the path."""
     verdict = response.verdict

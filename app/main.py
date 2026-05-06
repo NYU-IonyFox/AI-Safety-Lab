@@ -5,7 +5,7 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import Body, FastAPI, HTTPException, Request
+from fastapi import Body, FastAPI, HTTPException, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -18,6 +18,10 @@ from app.schemas import EvaluationRequest
 logger = logging.getLogger(__name__)
 
 REPORTS_DIR: str = os.getenv("SAFE_REPORTS_DIR", "reports")
+
+# In-memory report storage (process-lifetime; acceptable for stateless cloud deployment)
+_report_store: dict[str, bytes] = {}   # evaluation_id → PDF bytes
+_json_store: dict[str, str] = {}       # evaluation_id → JSON string
 
 
 @asynccontextmanager
@@ -130,6 +134,29 @@ def evaluate(request: EvaluationRequest = Body(...)) -> SAFEEvaluationResponse:
     print(f"[/v1/evaluations] input_type={bundle.input_type}, translation_applied={bundle.translation_report.translation_applied}")
     safe_response = run_evaluation(bundle)
     print(f"[/v1/evaluations] verdict={safe_response.verdict}, experts={len(safe_response.experts)}")
+
+    # Enrich submission_context with display fields
+    target_name = (
+        request.context.agent_name
+        or (request.submission.target_name if request.submission else "")
+        or "Unnamed"
+    )
+    safe_response = safe_response.model_copy(update={
+        "submission_context": {
+            **safe_response.submission_context,
+            "target_name": target_name,
+            "source_type": request.submission.source_type if request.submission else input_type,
+        }
+    })
+
+    # Store in memory for download endpoints
+    _json_store[safe_response.evaluation_id] = safe_response.model_dump_json()
+    try:
+        from app.reporting.pdf_generator import generate_pdf_bytes
+        _report_store[safe_response.evaluation_id] = generate_pdf_bytes(safe_response)
+    except Exception:
+        pass
+
     return safe_response
 
 
@@ -145,8 +172,8 @@ def evaluate_safe(bundle: EvidenceBundle) -> SAFEEvaluationResponse:
 
 @app.get(
     "/report/{evaluation_id}",
-    summary="Download evaluation PDF report",
-    description="Returns the PDF report for the given evaluation_id, or 404 if not found.",
+    summary="Download evaluation PDF report (filesystem)",
+    description="Returns the PDF report from REPORTS_DIR for the given evaluation_id, or 404 if not found.",
 )
 def get_report(evaluation_id: str) -> FileResponse:
     pattern = str(Path(REPORTS_DIR) / f"{evaluation_id}_*.pdf")
@@ -159,61 +186,54 @@ def get_report(evaluation_id: str) -> FileResponse:
     return FileResponse(matches[0], media_type="application/pdf", filename=Path(matches[0]).name)
 
 
-def _find_archive(evaluation_id: str) -> Path | None:
-    """Search known report directories for a JSON archive matching evaluation_id."""
-    from app.config import REPORT_DIR
-    search_dirs = [
-        Path(REPORTS_DIR),
-        REPORT_DIR,
-        Path("data") / "reports",
-    ]
-    for d in search_dirs:
-        for pattern in [f"*{evaluation_id}*.json", f"{evaluation_id}*.json"]:
-            matches = glob.glob(str(d / pattern))
-            if matches:
-                return Path(matches[0])
-    return None
-
-
 @app.get(
     "/v1/evaluations/{evaluation_id}/pdf",
-    summary="Download evaluation PDF (v1 path)",
+    summary="Download evaluation PDF",
     include_in_schema=False,
 )
-def get_evaluation_pdf(evaluation_id: str) -> FileResponse:
-    return get_report(evaluation_id)
+def get_evaluation_pdf(evaluation_id: str):
+    pdf_bytes = _report_store.get(evaluation_id)
+    if not pdf_bytes:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No PDF report found for evaluation_id: {evaluation_id}",
+        )
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{evaluation_id}.pdf"'},
+    )
 
 
 @app.get(
     "/v1/evaluations/{evaluation_id}/json",
-    summary="Download evaluation JSON archive (v1 path)",
+    summary="Download evaluation JSON",
     include_in_schema=False,
 )
 def get_evaluation_json(evaluation_id: str):
-    archive = _find_archive(evaluation_id)
-    if not archive:
+    json_str = _json_store.get(evaluation_id)
+    if not json_str:
         raise HTTPException(
             status_code=404,
             detail=f"No JSON archive found for evaluation_id: {evaluation_id}",
         )
-    return FileResponse(
-        str(archive),
+    return Response(
+        content=json_str,
         media_type="application/json",
-        filename=archive.name,
+        headers={"Content-Disposition": f'attachment; filename="{evaluation_id}.json"'},
     )
 
 
 @app.get(
     "/v1/evaluations/{evaluation_id}",
-    summary="Get evaluation result by ID (v1 path)",
+    summary="Get evaluation result by ID",
     include_in_schema=False,
 )
 def get_evaluation(evaluation_id: str):
-    archive = _find_archive(evaluation_id)
-    if not archive:
+    json_str = _json_store.get(evaluation_id)
+    if not json_str:
         raise HTTPException(
             status_code=404,
             detail=f"Evaluation not found: {evaluation_id}",
         )
-    with open(str(archive), encoding="utf-8") as f:
-        return JSONResponse(json.load(f))
+    return JSONResponse(json.loads(json_str))

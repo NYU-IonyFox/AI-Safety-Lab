@@ -283,6 +283,7 @@ body{font-family:'Inter',sans-serif;background:#F0EDE8;min-height:100vh;display:
       <button class="sbtn" id="sbtn" disabled onclick="doSubmit()">Run evaluation &#8599;</button>
       <div>
         <div class="s-hint">Typically 20&ndash;60 sec<br>depending on mode</div>
+        <div id="eval-progress" style="display:none;font-size:9px;color:#78716C;margin-top:4px;"></div>
         <div class="err-msg" id="err-msg"></div>
       </div>
     </div>
@@ -446,7 +447,7 @@ function renderLog(){
   e.innerHTML=log.map(function(r){
     var v=r.verdict;
     var cls=v==='APPROVE'?'b-ap':v==='REJECT'?'b-rj':'b-rv';
-    var label=v==='REVIEW'?'HOLD':v;
+    var label=v==='REVIEW'||v==='HOLD'?'HOLD':(v||'HOLD');
     return '<div class="sess-row"><span class="sess-time">'+r.time+'</span><span class="sess-proj">'+escHtml(r.name)+' &middot; '+r.type+'</span><span class="sess-badge '+cls+'">'+label+'</span></div>';
   }).join('');
 }
@@ -455,10 +456,24 @@ function renderLog(){
 async function doSubmit(){
   var btn=document.getElementById('sbtn');
   var errEl=document.getElementById('err-msg');
+  var progressEl=document.getElementById('eval-progress');
   btn.disabled=true;
   btn.classList.add('running');
   btn.textContent='Running…';
   errEl.classList.remove('show');
+
+  /* Step 6 — cycling progress text */
+  var _phaseStart=Date.now();
+  progressEl.textContent='Screening evidence…';
+  progressEl.style.display='block';
+  var _phaseInterval=setInterval(function(){
+    var elapsed=(Date.now()-_phaseStart)/1000;
+    if(elapsed<5) progressEl.textContent='Screening evidence…';
+    else if(elapsed<15) progressEl.textContent='Expert 1: Adversarial Security evaluating…';
+    else if(elapsed<25) progressEl.textContent='Expert 2: Content Safety evaluating…';
+    else if(elapsed<35) progressEl.textContent='Expert 3: Governance & UN evaluating…';
+    else progressEl.textContent='Finalising verdict…';
+  },1000);
 
   var targetName=document.getElementById('pname').value.trim();
   var apiKey=document.getElementById('akey').value.trim();
@@ -503,6 +518,9 @@ async function doSubmit(){
       var errBody=await resp.text();
       throw new Error(resp.status+': '+errBody.slice(0,200));
     }
+    clearInterval(_phaseInterval);
+    progressEl.style.display='none';
+
     var data=await resp.json();
     var duration=Math.round((Date.now()-startTime)/1000);
     data._duration_sec=duration;
@@ -516,8 +534,9 @@ async function doSubmit(){
       data._exec_mode='Rules only';
     }
     sessionStorage.setItem('safe_result',JSON.stringify(data));
+    if(data.evaluation_id) sessionStorage.setItem('safe_last_id',data.evaluation_id);
 
-    var verdict=data.decision||'REVIEW';
+    var verdict=data.verdict||data.decision||'HOLD';
     var now=new Date();
     var t=now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
     log.unshift({time:t,name:targetName,type:tab,verdict:verdict});
@@ -539,6 +558,8 @@ async function doSubmit(){
 
     window.location.href='/result?id='+encodeURIComponent(data.evaluation_id);
   } catch(err){
+    clearInterval(_phaseInterval);
+    progressEl.style.display='none';
     btn.disabled=false;
     btn.classList.remove('running');
     btn.textContent='Run evaluation ↗';
