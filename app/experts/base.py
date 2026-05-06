@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from abc import ABC, abstractmethod
 
@@ -44,6 +45,36 @@ class BaseExpert(ABC):
             "overall": "LOW",
             "triggered_dimensions": [],
         }
+
+    def _parse_llm_raw(self, raw: str) -> list:
+        """Robustly extract a JSON array from raw LLM output."""
+        raw = raw.strip()
+        # Strip markdown code fences
+        if "```" in raw:
+            first = raw.find("```")
+            last = raw.rfind("```")
+            if first != last:
+                raw = raw[first + 3:last].strip()
+                if raw.lower().startswith("json"):
+                    raw = raw[4:].strip()
+        # Locate the JSON array
+        start = raw.find("[")
+        end = raw.rfind("]") + 1
+        if start == -1 or end == 0:
+            return []
+        try:
+            items = json.loads(raw[start:end])
+        except (json.JSONDecodeError, ValueError):
+            return []
+        # Normalise each item's required enum fields
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            if item.get("level") not in ("HIGH", "MEDIUM", "LOW"):
+                item["level"] = "LOW"
+            if item.get("evidence_quality") not in ("Strong", "Partial", "Weak", "NA"):
+                item["evidence_quality"] = "Partial"
+        return items
 
     @abstractmethod
     def assess(self, evidence_bundle: dict) -> dict:

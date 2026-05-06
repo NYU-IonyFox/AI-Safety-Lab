@@ -33,8 +33,11 @@ class AdversarialSecurityExpert(BaseExpert):
 
     def assess(self, evidence_bundle: dict) -> dict:
         if self.execution_mode() == "rules":
-            return self._mock_result()
-        return self._assess_llm(evidence_bundle)
+            result = self._mock_result()
+        else:
+            result = self._assess_llm(evidence_bundle)
+        print(f"[{self.expert_id}] overall={result['overall']}, triggered={len(result.get('triggered_dimensions', []))}")
+        return result
 
     def _assess_llm(self, evidence_bundle: dict) -> dict:
         system_prompt = self._build_system_prompt()
@@ -49,7 +52,11 @@ class AdversarialSecurityExpert(BaseExpert):
         return prompt.replace("{{anchor_table}}", table)
 
     def _call_llm(self, system_prompt: str, evidence_bundle: dict) -> list:
-        api_key = os.getenv("ANTHROPIC_API_KEY") or evidence_bundle.get("api_key", "")
+        api_key = (
+            os.getenv("ANTHROPIC_API_KEY")
+            or evidence_bundle.get("api_key", "")
+            or evidence_bundle.get("content", {}).get("api_key", "")
+        )
         user_content = json.dumps(evidence_bundle, ensure_ascii=False)
         try:
             import anthropic
@@ -62,13 +69,14 @@ class AdversarialSecurityExpert(BaseExpert):
             system=system_prompt,
             messages=[{"role": "user", "content": user_content}],
         )
-        return json.loads(msg.content[0].text.strip())
+        return self._parse_llm_raw(msg.content[0].text)
 
     def _parse_response(self, items: list) -> dict:
         dim_tier = {d["name"]: d["tier"] for d in self.dimensions}
         all_scores = [
             {"tier": dim_tier.get(item.get("name", ""), "IMPORTANT"), "level": item.get("level", "LOW")}
             for item in items
+            if isinstance(item, dict)
         ]
         triggered = [
             {
@@ -80,7 +88,7 @@ class AdversarialSecurityExpert(BaseExpert):
                 "reason": item.get("reason", ""),
             }
             for item in items
-            if item.get("level", "LOW") != "LOW"
+            if isinstance(item, dict) and item.get("level", "LOW") != "LOW" and "name" in item
         ]
         return {
             "id": self.expert_id,
