@@ -129,9 +129,13 @@ def run_evaluation(evidence_bundle: EvidenceBundle) -> SAFEEvaluationResponse:
         bundle_dict = evidence_bundle.model_dump()
 
         # L3 — Expert Council
+        print(f"[run_evaluation] Starting Expert Council. bundle.input_type={bundle_dict.get('input_type')}")
         result_1 = AdversarialSecurityExpert().assess(bundle_dict)
+        print(f"[run_evaluation] Expert 1 done")
         result_2 = ContentSafetyExpert().assess(bundle_dict)
+        print(f"[run_evaluation] Expert 2 done")
         result_3 = GovernanceExpert().assess(bundle_dict)
+        print(f"[run_evaluation] Expert 3 done")
 
         # L4 — Arbitration (adapter converts Expert format → arbitration format)
         arb_inputs = [
@@ -178,7 +182,10 @@ def run_evaluation(evidence_bundle: EvidenceBundle) -> SAFEEvaluationResponse:
 
         return safe_response
 
-    except Exception:  # noqa: BLE001
+    except Exception as _e:  # noqa: BLE001
+        import traceback
+        print(f"[run_evaluation ERROR] {_e}")
+        traceback.print_exc()
         from app.safe_schemas import TranslationReport
         tr = getattr(evidence_bundle, "translation_report", None) or TranslationReport(
             translation_applied=False, primary_language="unknown"

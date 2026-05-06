@@ -127,7 +127,10 @@ def evaluate(request: EvaluationRequest = Body(...)) -> SAFEEvaluationResponse:
         translation_report=translation_report,
         content=content,
     )
-    return run_evaluation(bundle)
+    print(f"[/v1/evaluations] input_type={bundle.input_type}, translation_applied={bundle.translation_report.translation_applied}")
+    safe_response = run_evaluation(bundle)
+    print(f"[/v1/evaluations] verdict={safe_response.verdict}, experts={len(safe_response.experts)}")
+    return safe_response
 
 
 @app.post(
