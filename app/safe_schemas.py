@@ -42,6 +42,7 @@ class EvidenceBundle(BaseModel):
     input_type: Literal["github", "conversation", "document"]
     translation_report: TranslationReport
     content: dict[str, Any] = Field(default_factory=dict)
+    api_key: str = ""          # routing only — never serialised into evidence content
     live_attack_results: None = None
 
 

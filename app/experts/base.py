@@ -85,7 +85,7 @@ class BaseExpert(ABC):
         return items
 
     @abstractmethod
-    def assess(self, evidence_bundle: dict) -> dict:
+    def assess(self, evidence_bundle: dict, api_key: str = "") -> dict:
         raise NotImplementedError
 
 

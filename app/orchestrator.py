@@ -186,14 +186,15 @@ def run_evaluation(evidence_bundle: EvidenceBundle) -> SAFEEvaluationResponse:
     """
     try:
         bundle_dict = evidence_bundle.model_dump()
+        api_key = evidence_bundle.api_key or bundle_dict.get("api_key", "") or __import__("os").getenv("ANTHROPIC_API_KEY", "")
 
         # L3 — Expert Council
         print(f"[run_evaluation] Starting Expert Council. bundle.input_type={bundle_dict.get('input_type')}")
-        result_1 = AdversarialSecurityExpert().assess(bundle_dict)
+        result_1 = AdversarialSecurityExpert().assess(bundle_dict, api_key=api_key)
         print(f"[run_evaluation] Expert 1 done")
-        result_2 = ContentSafetyExpert().assess(bundle_dict)
+        result_2 = ContentSafetyExpert().assess(bundle_dict, api_key=api_key)
         print(f"[run_evaluation] Expert 2 done")
-        result_3 = GovernanceExpert().assess(bundle_dict)
+        result_3 = GovernanceExpert().assess(bundle_dict, api_key=api_key)
         print(f"[run_evaluation] Expert 3 done")
 
         # L4 — Arbitration (adapter converts Expert format → arbitration format)
@@ -227,7 +228,7 @@ def run_evaluation(evidence_bundle: EvidenceBundle) -> SAFEEvaluationResponse:
                 _make_expert_output(result_2),
                 _make_expert_output(result_3),
             ],
-            recommendations=_build_recommendations([result_1, result_2, result_3]),
+            recommendations=_build_recommendations([result_1, result_2, result_3], api_key=api_key),
             translation_report=evidence_bundle.translation_report,
             report_path="",
         )

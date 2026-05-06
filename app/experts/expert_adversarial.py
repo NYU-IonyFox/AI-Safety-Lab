@@ -31,7 +31,8 @@ class AdversarialSecurityExpert(BaseExpert):
     expert_id = "expert_adversarial_security"
     dimensions = _DIMENSIONS
 
-    def assess(self, evidence_bundle: dict) -> dict:
+    def assess(self, evidence_bundle: dict, api_key: str = "") -> dict:
+        self._api_key = api_key
         if self.execution_mode() == "rules":
             result = self._mock_result()
         else:
@@ -53,9 +54,8 @@ class AdversarialSecurityExpert(BaseExpert):
 
     def _call_llm(self, system_prompt: str, evidence_bundle: dict) -> list:
         api_key = (
-            os.getenv("ANTHROPIC_API_KEY")
-            or evidence_bundle.get("api_key", "")
-            or evidence_bundle.get("content", {}).get("api_key", "")
+            getattr(self, "_api_key", "")
+            or os.getenv("ANTHROPIC_API_KEY", "")
         )
         user_content = self._build_user_content(evidence_bundle)
         try:

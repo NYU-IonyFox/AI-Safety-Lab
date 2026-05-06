@@ -129,6 +129,7 @@ def evaluate(request: EvaluationRequest = Body(...)) -> SAFEEvaluationResponse:
         input_type=input_type,
         translation_report=translation_report,
         content=content,
+        api_key=api_key,
     )
     print(f"[/v1/evaluations] input_type={bundle.input_type}, translation_applied={bundle.translation_report.translation_applied}")
     safe_response = run_evaluation(bundle)
