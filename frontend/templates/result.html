@@ -180,6 +180,26 @@ body{font-family:'Inter',sans-serif;background:#F0EDE8;min-height:100vh;display:
 .loading-msg{padding:3rem 1.75rem;color:#A8A29E;font-size:13px;text-align:center;}
 .no-data-msg{padding:2rem 1.75rem;}
 .no-data-msg a{color:#44403C;}
+
+/* Colour-blind mode overrides */
+body.colorblind .sev-HIGH,
+body.colorblind .ec-risk.hi,
+body.colorblind .reg-sev.hi,
+body.colorblind .ds-tag.hi{background:#0077BB;color:#ffffff;}
+body.colorblind .sev-MEDIUM,
+body.colorblind .ec-risk.md,
+body.colorblind .reg-sev.md,
+body.colorblind .ds-tag.md{background:#EE7733;color:#ffffff;}
+body.colorblind .sev-LOW,
+body.colorblind .ec-risk.lo,
+body.colorblind .reg-sev.lo,
+body.colorblind .ds-tag.lo{background:#009988;color:#ffffff;}
+body.colorblind .verdict-reject,
+body.colorblind .vh-verdict.reject{color:#0077BB;}
+body.colorblind .verdict-hold,
+body.colorblind .vh-verdict.hold{color:#EE7733;}
+body.colorblind .verdict-approve,
+body.colorblind .vh-verdict.approve{color:#009988;}
 </style>
 </head>
 <body>
@@ -619,6 +639,13 @@ function loadResult(){
     }
   }
 }
+
+// Apply colour-blind mode from sessionStorage (toggle lives on index.html)
+(function(){
+  if(sessionStorage.getItem('colorblind_mode')==='true'){
+    document.body.classList.add('colorblind');
+  }
+})();
 
 loadResult();
 </script>

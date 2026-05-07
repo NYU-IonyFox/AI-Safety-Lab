@@ -22,6 +22,8 @@ REPORTS_DIR: str = os.getenv("SAFE_REPORTS_DIR", "reports")
 # In-memory report storage (process-lifetime; acceptable for stateless cloud deployment)
 _report_store: dict[str, bytes] = {}   # evaluation_id → PDF bytes
 _json_store: dict[str, str] = {}       # evaluation_id → JSON string
+_report_names: dict[str, str] = {}     # evaluation_id → structured PDF filename
+_json_names: dict[str, str] = {}       # evaluation_id → structured JSON filename
 
 
 @asynccontextmanager
@@ -150,10 +152,13 @@ def evaluate(request: EvaluationRequest = Body(...)) -> SAFEEvaluationResponse:
     })
 
     # Store in memory for download endpoints
-    _json_store[safe_response.evaluation_id] = safe_response.model_dump_json()
+    eid = safe_response.evaluation_id
+    _json_store[eid] = safe_response.model_dump_json()
     try:
-        from app.reporting.pdf_generator import generate_pdf_bytes
-        _report_store[safe_response.evaluation_id] = generate_pdf_bytes(safe_response)
+        from app.reporting.pdf_generator import generate_pdf_bytes, make_filename
+        _report_store[eid] = generate_pdf_bytes(safe_response)
+        _report_names[eid] = make_filename(safe_response, "pdf")
+        _json_names[eid] = make_filename(safe_response, "json")
     except Exception:
         pass
 
@@ -198,10 +203,11 @@ def get_evaluation_pdf(evaluation_id: str):
             status_code=404,
             detail=f"No PDF report found for evaluation_id: {evaluation_id}",
         )
+    pdf_name = _report_names.get(evaluation_id, f"{evaluation_id}.pdf")
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{evaluation_id}.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{pdf_name}"'},
     )
 
 
@@ -217,10 +223,11 @@ def get_evaluation_json(evaluation_id: str):
             status_code=404,
             detail=f"No JSON archive found for evaluation_id: {evaluation_id}",
         )
+    json_name = _json_names.get(evaluation_id, f"{evaluation_id}.json")
     return Response(
         content=json_str,
         media_type="application/json",
-        headers={"Content-Disposition": f'attachment; filename="{evaluation_id}.json"'},
+        headers={"Content-Disposition": f'attachment; filename="{json_name}"'},
     )
 
 
