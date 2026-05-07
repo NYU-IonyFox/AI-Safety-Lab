@@ -212,20 +212,6 @@ def run_evaluation(evidence_bundle: EvidenceBundle) -> SAFEEvaluationResponse:
         if arb.get("convergent_risk_note"):
             additional.append(arb["convergent_risk_note"])
 
-        has_domain_inference = any(
-            "[domain-inference]" in dim.get("reason", "")
-            for expert in [result_1, result_2, result_3]
-            for dim in expert.get("triggered_dimensions", [])
-        )
-        if has_domain_inference:
-            additional.append(
-                "High-risk system type detected. Some dimension scores "
-                "reflect elevated baseline risk for this system category "
-                "where safeguard documentation is absent. "
-                "Independent evidence review is recommended for "
-                "[domain-inference] tagged findings."
-            )
-
         rule_val = arb.get("decision_rule_triggered", "")
         safe_response = SAFEEvaluationResponse(
             evaluation_id=str(_uuid.uuid4()),

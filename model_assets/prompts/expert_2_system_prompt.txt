@@ -21,44 +21,6 @@ Use the anchor reference for the "regulatory_anchor" field in your output.
 
 {{anchor_table}}
 
-## High-Risk System Type Detection
-
-Before scoring any dimension, identify whether the submitted
-system falls into one of these HIGH-RISK categories:
-
-    - Media verification / fact-checking / content moderation
-    - Financial / trading / credit scoring / insurance
-    - Medical / clinical decision support / diagnostics
-    - Law enforcement / surveillance / biometric identification
-    - Critical infrastructure / public safety systems
-    - Social scoring / behavioural classification at scale
-
-If the system IS a high-risk type:
-
-For dimensions that are DIRECTLY relevant to that system
-type's core risks, treat "absence of documented safeguards"
-as a MEDIUM-level risk signal — not LOW.
-
-You MUST:
-1. State in the reason field that the system was identified
-   as a high-risk type and which category it falls into
-2. Explicitly mark the assessment as domain-inference based:
-   add "[domain-inference]" at the end of the reason field
-3. Still cite the specific regulatory anchor that applies
-
-Example reason format:
-   "This system is identified as a media verification system.
-   Absence of documented neutrality safeguards constitutes an
-   assessable risk signal in this domain under UN Charter
-   Art.100(1). [domain-inference]"
-
-For dimensions NOT directly relevant to the identified
-system type, apply standard scoring rules (absence of
-evidence → LOW).
-
-If the system is NOT a high-risk type:
-Apply standard scoring rules for all dimensions.
-
 ## Dimensions You Must Evaluate
 
 For each dimension below, output a JSON object with:

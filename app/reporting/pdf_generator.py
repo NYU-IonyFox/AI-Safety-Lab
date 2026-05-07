@@ -47,13 +47,13 @@ _BADGE_BG = {
 
 # Verdict colours
 _COVER_V = {"REJECT": "#F2A8A8", "HOLD": "#FDE68A", "APPROVE": "#BBF7D0"}
-_INNER_V_TEXT = {"REJECT": "#A32D2D", "HOLD": "#CA8A04", "APPROVE": "#3B6D11"}
+_INNER_V_TEXT = {"REJECT": "#A32D2D", "HOLD": "#854F0B", "APPROVE": "#3B6D11"}
 _INNER_V_BG   = {"REJECT": "#FCEBEB", "HOLD": "#FAEEDA", "APPROVE": "#EAF3DE"}
 
 # Level — solid dark background (inner pages)
-_SEV_SOLID_BG   = {"HIGH": "#A32D2D", "MEDIUM": "#CA8A04", "LOW": "#3B6D11"}
+_SEV_SOLID_BG   = {"HIGH": "#A32D2D", "MEDIUM": "#854F0B", "LOW": "#3B6D11"}
 _SEV_LIGHT_BG   = {"HIGH": "#FCEBEB", "MEDIUM": "#FAEEDA", "LOW": "#EAF3DE"}
-_SEV_LIGHT_TEXT = {"HIGH": "#A32D2D", "MEDIUM": "#CA8A04", "LOW": "#3B6D11"}
+_SEV_LIGHT_TEXT = {"HIGH": "#A32D2D", "MEDIUM": "#854F0B", "LOW": "#3B6D11"}
 
 _EXPERT_COLORS = {
     "expert_adversarial_security": "#3D6070",
@@ -270,9 +270,9 @@ def _draw_inner_header(canvas, doc, response: SAFEEvaluationResponse) -> None:
 # ---------------------------------------------------------------------------
 def _exec_summary_page(response: SAFEEvaluationResponse) -> list:
     verdict = response.verdict
-    vtext  = HexColor(_INNER_V_TEXT.get(verdict, "#CA8A04"))
+    vtext  = HexColor(_INNER_V_TEXT.get(verdict, "#854F0B"))
     vbg    = HexColor(_INNER_V_BG.get(verdict,   "#FAEEDA"))
-    vsolid = HexColor(_SEV_SOLID_BG.get(verdict,  "#CA8A04"))
+    vsolid = HexColor(_SEV_SOLID_BG.get(verdict,  "#854F0B"))
     badge_text = _VERDICT_BADGE.get(verdict, "")
     rule_text  = str(response.primary_reason.get(
         "decision_rule_triggered",
